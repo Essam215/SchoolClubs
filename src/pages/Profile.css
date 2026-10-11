@@ -4,10 +4,69 @@
   gap: 1.5rem;
 }
 
+/* Profile Navigation Header */
+.profile-nav-header {
+  padding: 1.25rem 1.75rem;
+  border-radius: var(--radius-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.profile-nav-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.35rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  gap: 0.4rem;
+}
+
+.profile-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.profile-tab-btn.active {
+  background: var(--accent-gradient, linear-gradient(135deg, #6366f1, #8b5cf6));
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+/* Profile Banner */
 .profile-banner {
   position: relative;
   overflow: hidden;
   padding: 2rem;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
 }
 
@@ -16,8 +75,8 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 80px;
-  background: linear-gradient(90deg, rgba(229,30,37,0.3) 0%, rgba(245,158,11,0.15) 100%);
+  height: 90px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.35) 0%, rgba(245, 158, 11, 0.2) 100%);
   z-index: 0;
 }
 
@@ -26,8 +85,9 @@
   z-index: 1;
   display: flex;
   align-items: flex-end;
+  flex-wrap: wrap;
   gap: 1.5rem;
-  margin-top: 20px;
+  margin-top: 25px;
 }
 
 .avatar-wrapper {
@@ -36,7 +96,8 @@
   height: 110px;
   border-radius: 50%;
   border: 4px solid var(--bg-panel);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
 }
 
 .profile-avatar {
@@ -50,12 +111,12 @@
   position: absolute;
   bottom: -4px;
   right: -4px;
-  background: var(--primary-accent);
+  background: var(--accent);
   color: white;
   font-weight: 700;
   font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-full);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
   border: 2px solid var(--bg-panel);
 }
 
@@ -63,24 +124,55 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  flex: 1;
 }
 
 .profile-name {
-  font-size: 1.8rem;
+  font-size: 1.85rem;
+  font-weight: 800;
   line-height: 1.1;
 }
 
-.role-tag {
-  background: var(--bg-card-hover);
+.student-id-pill {
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--border-color);
   font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.25rem 0.6rem;
-  border-radius: var(--radius-full);
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
+}
+
+.role-tag {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  color: #a5b4fc;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+}
+
+.student-academic-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.academic-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .profile-meta-row {
@@ -91,7 +183,7 @@
 }
 
 .meta-info {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
@@ -99,33 +191,67 @@
 }
 
 .xp-bar-container {
-  margin-top: 1.5rem;
+  margin-top: 1.75rem;
   position: relative;
   z-index: 1;
 }
 
 .xp-track {
-  height: 10px;
-  background: var(--bg-input);
-  border-radius: var(--radius-full);
+  height: 9px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 999px;
   overflow: hidden;
   border: 1px solid var(--border-color);
 }
 
 .xp-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary-accent), var(--warning));
-  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, #6366f1, #f59e0b);
+  border-radius: 999px;
   transition: width 0.4s ease;
 }
 
+/* Quick Metrics Row */
+.student-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.student-stat-card {
+  padding: 1.15rem 1.35rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-sub {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.stat-main {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0.2rem 0;
+}
+
+.stat-foot {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Profile Grid */
 .profile-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .profile-grid {
     grid-template-columns: 1fr;
   }
@@ -137,29 +263,15 @@
 }
 
 .section-title {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 .bio-text {
   color: var(--text-secondary);
-  line-height: 1.6;
-  font-size: 0.95rem;
-}
-
-.bio-textarea {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  border-radius: var(--radius-md);
-  padding: 0.75rem;
-  font-family: inherit;
-  font-size: 0.95rem;
-  outline: none;
-}
-.bio-textarea:focus {
-  border-color: var(--primary-accent);
+  line-height: 1.65;
+  font-size: 0.9rem;
 }
 
 .skill-input-form {
@@ -169,15 +281,41 @@
 
 .skill-input {
   flex: 1;
-  background: var(--bg-input);
+  background: rgba(15, 23, 42, 0.6);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 0.5rem 0.85rem;
-  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--radius-md);
   outline: none;
+  font-size: 0.88rem;
 }
+
 .skill-input:focus {
-  border-color: var(--primary-accent);
+  border-color: var(--accent);
+}
+
+.quick-suggestions-box {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+}
+
+.chip-suggestion {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip-suggestion:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--accent);
+  color: var(--text-primary);
 }
 
 .skills-tags-grid {
@@ -187,29 +325,43 @@
 }
 
 .skill-tag {
-  background: rgba(229, 30, 37, 0.1);
-  border: 1px solid rgba(229, 30, 37, 0.3);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
   color: var(--text-primary);
   padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-full);
-  font-size: 0.85rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  transition: all 0.2s ease;
+}
+
+.skill-tag:hover {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.2);
 }
 
 .remove-skill-btn {
   background: transparent;
   color: var(--text-muted);
+  border: none;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.remove-skill-btn:hover {
-  color: var(--danger);
+  padding: 2px;
+  border-radius: 50%;
+  transition: all 0.15s ease;
 }
 
+.remove-skill-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Clubs Enrolled List */
 .clubs-list {
   display: flex;
   flex-direction: column;
@@ -220,26 +372,28 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.85rem;
-  background: var(--bg-card);
+  padding: 0.9rem 1.1rem;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: all 0.2s ease;
 }
+
 .club-card-item:hover {
-  border-color: rgba(229, 30, 37, 0.3);
-  background: var(--bg-card-hover);
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .club-icon-avatar {
-  font-size: 1.5rem;
-  background: var(--bg-main);
+  font-size: 1.45rem;
+  background: rgba(0, 0, 0, 0.3);
   width: 44px;
   height: 44px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .club-info {
@@ -249,21 +403,22 @@
 .club-title {
   font-size: 0.95rem;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .club-members {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
 .club-badge-tag {
-  background: var(--primary-glow);
-  color: var(--primary-accent);
-  border: 1px solid rgba(229, 30, 37, 0.3);
-  font-size: 0.75rem;
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  font-size: 0.72rem;
   font-weight: 600;
-  padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-full);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
 }
 
 .badges-grid {
@@ -276,32 +431,247 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem;
-  background: var(--bg-card);
+  padding: 0.75rem 0.9rem;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
 }
 
 .badge-icon-box {
-  font-size: 1.6rem;
-  width: 40px;
-  height: 40px;
+  font-size: 1.5rem;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .badge-name {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .badge-desc {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
 }
 
-.btn-sm {
-  padding: 0.25rem 0.6rem;
+/* ==================== CLUB & MEMBER DIRECTORY (TAB 2) ==================== */
+.directory-header-bar {
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.directory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.5rem;
+}
+
+.directory-club-card {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.club-card-banner {
+  height: 120px;
+  position: relative;
+  overflow: hidden;
+}
+
+.club-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.club-icon-overlay {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 1rem;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.club-card-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.member-status-pill {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.club-meta-specs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  font-size: 0.78rem;
+}
+
+.spec-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.members-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+
+.avatar-stack {
+  display: flex;
+  align-items: center;
+}
+
+.stack-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-card);
+  margin-left: -8px;
+  object-fit: cover;
+}
+
+.stack-avatar:first-child {
+  margin-left: 0;
+}
+
+/* Club & Member Roster Modal */
+.modal-scrollable {
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.club-attributes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.attr-item {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+}
+
+.attr-k {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.attr-v {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.members-roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.roster-member-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+}
+
+.roster-member-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.roster-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+}
+
+.roster-member-info {
+  flex: 1;
+}
+
+.roster-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.roster-role-tag {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+.roster-sub {
   font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: block;
+}
+
+.roster-skills-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.roster-skill-chip {
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  color: var(--text-muted);
 }
