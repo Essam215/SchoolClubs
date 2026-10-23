@@ -6,6 +6,7 @@ import {
 } from '../lib/schema';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { loadAppSnapshot, saveAppSnapshot } from '../lib/persist';
+import AuthScreen from '../components/AuthScreen';
 
 const AppContext = createContext();
 
@@ -138,33 +139,51 @@ export function AppProvider({ children }) {
 
   const submitAuth = async (event) => {
     event.preventDefault();
+    if (!isSupabaseConfigured() || authBusy) return;
     setAuthBusy(true);
     setAuthMessage('');
-    const result = authMode === 'signup'
-      ? await supabase.auth.signUp({ email: authEmail, password: authPassword, options: { data: { name: authEmail.split('@')[0] } } })
-      : await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
-    setAuthBusy(false);
-    if (result.error) setAuthMessage(result.error.message);
-    else if (authMode === 'signup' && !result.data.session) setAuthMessage('Check your email to confirm the new account, then sign in.');
+    try {
+      const result = authMode === 'signup'
+        ? await supabase.auth.signUp({ email: authEmail.trim(), password: authPassword, options: { data: { name: authEmail.trim().split('@')[0] } } })
+        : await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
+      if (result.error) {
+        const rateLimited = result.error.status === 429 || result.error.code === 'over_email_send_rate_limit';
+        const errorCode = result.error.code;
+        if (rateLimited) {
+          setAuthMessage('Supabase is temporarily limiting signup emails. If you already have an account, switch to Sign in. Otherwise, wait before trying again.');
+        } else if (errorCode === 'invalid_credentials') {
+          setAuthMessage('That email and password do not match. Check them and try again.');
+        } else if (errorCode === 'email_not_confirmed') {
+          setAuthMessage('Confirm your email using the link Supabase sent you, then sign in.');
+        } else {
+          setAuthMessage(result.error.message);
+        }
+      } else if (authMode === 'signup' && !result.data.session) {
+        setAuthMessage('Check your email to confirm the new account, then sign in.');
+      }
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : 'Unable to connect to Supabase. Check your connection and try again.');
+    } finally {
+      setAuthBusy(false);
+    }
   };
 
   if (authLoading || (session && dataLoading)) {
-    return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'white' }}>Connecting to Supabase…</div>;
+    return <div className="auth-loading">Connecting to Supabase…</div>;
   }
   if (!session) {
-    return <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#0b1020', color: '#fff', fontFamily: 'sans-serif' }}>
-      <form onSubmit={submitAuth} style={{ width: 'min(90vw, 390px)', padding: 30, borderRadius: 16, background: '#151d31', display: 'grid', gap: 14 }}>
-        <h1 style={{ margin: 0 }}>School Clubs</h1>
-        <p style={{ margin: 0, color: '#aab4ca' }}>{authMode === 'signup' ? 'Create an account to start with an empty workspace.' : 'Sign in to load your Supabase workspace.'}</p>
-        <input type="email" required autoComplete="email" placeholder="Email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} style={{ padding: 12 }} />
-        <input type="password" required minLength={6} autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} placeholder="Password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: 12 }} />
-        {authMessage && <p role="alert" style={{ color: '#ffb4ab', margin: 0 }}>{authMessage}</p>}
-        <button disabled={!isSupabaseConfigured() || authBusy} style={{ padding: 12, cursor: 'pointer' }}>{authBusy ? 'Please wait…' : authMode === 'signup' ? 'Create account' : 'Sign in'}</button>
-        <button type="button" onClick={() => { setAuthMode(authMode === 'signup' ? 'signin' : 'signup'); setAuthMessage(''); }} style={{ background: 'transparent', color: '#b9c8ff', border: 0, cursor: 'pointer' }}>
-          {authMode === 'signup' ? 'Already have an account? Sign in' : 'New here? Create an account'}
-        </button>
-      </form>
-    </main>;
+    return <AuthScreen
+      authMode={authMode}
+      authEmail={authEmail}
+      authPassword={authPassword}
+      authMessage={authMessage}
+      authBusy={authBusy}
+      configured={isSupabaseConfigured()}
+      onEmailChange={event => setAuthEmail(event.target.value)}
+      onPasswordChange={event => setAuthPassword(event.target.value)}
+      onModeChange={() => { setAuthMode(authMode === 'signup' ? 'signin' : 'signup'); setAuthMessage(''); }}
+      onSubmit={submitAuth}
+    />;
   }
 
   if (session && !user && !dataLoading) {
