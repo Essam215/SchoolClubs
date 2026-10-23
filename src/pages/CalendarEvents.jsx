@@ -15,19 +15,19 @@ import {
 import './CalendarEvents.css';
 
 export default function CalendarEvents() {
-  const { events, toggleRsvp, addEvent } = useApp();
+  const { events, clubs, toggleRsvp, addEvent } = useApp();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Form State
   const [title, setTitle] = useState('');
-  const [club, setClub] = useState('Robotics & Tech Club');
-  const [date, setDate] = useState('2026-10-25');
+  const [club, setClub] = useState(clubs[0]?.name ?? '');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState('15:00 - 17:00');
-  const [location, setLocation] = useState('Auditorium A');
+  const [location, setLocation] = useState('');
   const [category, setCategory] = useState('Workshop');
   const [description, setDescription] = useState('');
-  const [capacity, setCapacity] = useState(80);
+  const [capacity, setCapacity] = useState(0);
 
   const categories = ['All', 'Workshop', 'Competition', 'Social', 'Meeting'];
 
@@ -61,7 +61,7 @@ export default function CalendarEvents() {
       <div className="calendar-header glass-panel">
         <div className="month-selector">
           <button className="icon-btn"><ChevronLeft size={20} /></button>
-          <h2 className="current-month">October 2026</h2>
+          <h2 className="current-month">{new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2>
           <button className="icon-btn"><ChevronRight size={20} /></button>
         </div>
         <div className="calendar-actions">
@@ -182,11 +182,8 @@ export default function CalendarEvents() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Host Club</label>
-                  <select value={club} onChange={e => setClub(e.target.value)}>
-                    <option>Robotics & Tech Club</option>
-                    <option>AI Research Group</option>
-                    <option>Debate Society</option>
-                    <option>Design Guild</option>
+                  <select value={club} onChange={e => setClub(e.target.value)} required>
+                    {clubs.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
                   </select>
                 </div>
 
@@ -219,7 +216,7 @@ export default function CalendarEvents() {
                 </div>
                 <div className="form-group">
                   <label>Max Capacity</label>
-                  <input type="number" value={capacity} onChange={e => setCapacity(e.target.value)} required />
+                  <input type="number" min="1" value={capacity} onChange={e => setCapacity(e.target.value)} required />
                 </div>
               </div>
 

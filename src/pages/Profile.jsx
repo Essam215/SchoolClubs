@@ -48,12 +48,12 @@ export default function Profile() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     name: user.name,
-    studentId: user.studentId || 'STU-2024-8891',
+    studentId: user.studentId || '',
     email: user.email,
-    phone: user.phone || '+1 (555) 382-9012',
-    major: user.major || 'Computer Science & AI',
-    academicYear: user.academicYear || 'Junior • Year 3',
-    gpa: user.gpa || '3.88 / 4.0',
+    phone: user.phone || '',
+    major: user.major || '',
+    academicYear: user.academicYear || '',
+    gpa: user.gpa || '',
     bio: user.bio,
     avatar: user.avatar
   });
@@ -149,7 +149,7 @@ export default function Profile() {
               <div className="profile-title-area">
                 <div className="flex items-center flex-wrap gap-2">
                   <h1 className="profile-name text-white">{user.name}</h1>
-                  <span className="student-id-pill">{user.studentId || 'STU-2024-8891'}</span>
+                  {user.studentId && <span className="student-id-pill">{user.studentId}</span>}
                   <span className="role-tag"><ShieldCheck size={14}/> {user.role}</span>
                 </div>
 
@@ -158,12 +158,12 @@ export default function Profile() {
                     <GraduationCap size={15} className="text-accent" /> 
                     <strong>{user.major}</strong> • {user.academicYear}
                   </span>
-                  <span className="academic-badge">GPA: {user.gpa || '3.88'}</span>
+                  {user.gpa && <span className="academic-badge">GPA: {user.gpa}</span>}
                 </div>
                 
                 <div className="profile-meta-row">
                   <span className="meta-info"><Mail size={14}/> {user.email}</span>
-                  <span className="meta-info"><Phone size={14}/> {user.phone || '+1 (555) 382-9012'}</span>
+                  {user.phone && <span className="meta-info"><Phone size={14}/> {user.phone}</span>}
                   <span className="meta-info"><Calendar size={14}/> Enrolled: {user.joinedDate}</span>
                   <span className="meta-info text-warning"><Flame size={14}/> {user.streak} Day Streak</span>
                 </div>
@@ -177,12 +177,12 @@ export default function Profile() {
                   onClick={() => {
                     setEditForm({
                       name: user.name,
-                      studentId: user.studentId || 'STU-2024-8891',
+                      studentId: user.studentId || '',
                       email: user.email,
-                      phone: user.phone || '+1 (555) 382-9012',
-                      major: user.major || 'Computer Science & AI',
-                      academicYear: user.academicYear || 'Junior • Year 3',
-                      gpa: user.gpa || '3.88 / 4.0',
+                      phone: user.phone || '',
+                      major: user.major || '',
+                      academicYear: user.academicYear || '',
+                      gpa: user.gpa || '',
                       bio: user.bio,
                       avatar: user.avatar
                     });

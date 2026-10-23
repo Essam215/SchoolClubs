@@ -1,43 +1,20 @@
 import React from 'react';
-import { DoorOpen, Users, Clock, CalendarCheck } from 'lucide-react';
+import { DoorOpen, CalendarDays, MapPin } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 import './RoomScheduling.css';
 
 export default function RoomScheduling() {
-  const rooms = [
-    { id: 1, name: 'Main Auditorium', capacity: 300, status: 'Available', type: 'Hall' },
-    { id: 2, name: 'Lab 3', capacity: 30, status: 'Occupied', type: 'Laboratory' },
-    { id: 3, name: 'Room 102', capacity: 40, status: 'Available', type: 'Classroom' },
-    { id: 4, name: 'Conference Room B', capacity: 15, status: 'Maintenance', type: 'Meeting' },
-  ];
+  const { events } = useApp();
+  const locations = [...new Set(events.map(event => event.location).filter(Boolean))];
 
   return (
     <div className="room-scheduling">
-      <div className="scheduling-header glass-panel">
-        <div>
-          <h2 className="panel-title" style={{ borderBottom: 'none', marginBottom: 0 }}>Room Scheduling & Allocation</h2>
-          <p className="text-muted" style={{ fontSize: '0.875rem' }}>Manage and book spaces for club activities</p>
-        </div>
-        <button className="btn btn-primary"><CalendarCheck size={16} /> Book a Room</button>
-      </div>
-
-      <div className="rooms-grid">
-        {rooms.map(room => (
-          <div key={room.id} className="room-card glass-panel">
-            <div className="room-card-header">
-              <DoorOpen size={24} className="text-accent" />
-              <span className={`status-badge ${room.status.toLowerCase()}`}>{room.status}</span>
-            </div>
-            <h3 className="room-name">{room.name}</h3>
-            <div className="room-details">
-              <span className="detail-item"><Users size={14} /> {room.capacity} Seats</span>
-              <span className="detail-item"><Clock size={14} /> {room.type}</span>
-            </div>
-            <button className="btn btn-outline reserve-btn" disabled={room.status !== 'Available'}>
-              {room.status === 'Available' ? 'Reserve Now' : 'Unavailable'}
-            </button>
-          </div>
-        ))}
-      </div>
+      <div className="scheduling-header glass-panel"><div><h2 className="panel-title" style={{ borderBottom: 'none', marginBottom: 0 }}>Room Scheduling & Allocation</h2><p className="text-muted" style={{ fontSize: '0.875rem' }}>Locations are shown from events saved in your workspace.</p></div></div>
+      {locations.length === 0 ? <div className="glass-panel" style={{ padding: 24 }}><DoorOpen size={24} className="text-accent"/><p className="text-muted">No locations yet. Add an event with a location to see it here.</p></div> :
+        <div className="rooms-grid">{locations.map(location => {
+          const locationEvents = events.filter(event => event.location === location);
+          return <article key={location} className="room-card glass-panel"><div className="room-card-header"><DoorOpen size={24} className="text-accent"/><span className="status-badge">In use</span></div><h3 className="room-name">{location}</h3><div className="room-details"><span className="detail-item"><CalendarDays size={14}/>{locationEvents.length} event{locationEvents.length === 1 ? '' : 's'}</span><span className="detail-item"><MapPin size={14}/>{location}</span></div></article>;
+        })}</div>}
     </div>
   );
 }

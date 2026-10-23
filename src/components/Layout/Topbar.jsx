@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Bell, Moon, Search, Sun } from 'lucide-react';
+import { Bell, LogOut, Moon, Search, Sun } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import NotificationDrawer from '../Notifications/NotificationDrawer';
 import './Topbar.css';
 
 export default function Topbar() {
-  const { notifications, user } = useApp();
+  const { notifications, user, signOut } = useApp();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
 
@@ -32,6 +32,7 @@ export default function Topbar() {
           <Bell size={20} />
           {unreadCount > 0 && <span className="notification-dot">{unreadCount}</span>}
         </button>
+        <button className="icon-btn" onClick={signOut} title="Sign out" aria-label="Sign out"><LogOut size={18} /></button>
       </div>
 
       <NotificationDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />

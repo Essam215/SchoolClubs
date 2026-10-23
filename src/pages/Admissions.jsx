@@ -41,7 +41,7 @@ export default function Admissions() {
   const [activeTab, setActiveTab] = useState('Status');
 
   // Apply Form State
-  const defaultClub = clubs.length > 0 ? clubs[0].name : 'Robotics & Tech Club';
+  const defaultClub = clubs[0]?.name ?? '';
   const [selectedClub, setSelectedClub] = useState(defaultClub);
   const [appliedRole, setAppliedRole] = useState('Member');
   const [customRole, setCustomRole] = useState('');

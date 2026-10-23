@@ -11,11 +11,15 @@ export default function AttendanceTracking() {
 
   const currentEvent = events.find(e => e.id === Number(selectedEventId)) || events[0];
 
+  if (!currentEvent) {
+    return <div className="attendance-page"><div className="attendance-header glass-panel"><div><h2>Event Attendance</h2><p className="text-secondary">Create an event before recording attendance.</p></div></div></div>;
+  }
+
   const currentAttendance = attendance.filter(a => a.eventTitle === currentEvent.title);
   const presentCount = currentAttendance.filter(a => a.status === 'Present').length;
   const lateCount = currentAttendance.filter(a => a.status === 'Late').length;
   const totalChecked = presentCount + lateCount;
-  const attendancePercent = currentEvent.capacity ? Math.round((totalChecked / currentEvent.capacity) * 100) : 75;
+  const attendancePercent = currentEvent.capacity ? Math.round((totalChecked / currentEvent.capacity) * 100) : 0;
 
   const handleManualCheckIn = (e) => {
     e.preventDefault();

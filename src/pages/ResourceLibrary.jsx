@@ -4,17 +4,17 @@ import { FolderGit2, Download, Search, Plus, FileText, Image, FileSpreadsheet, A
 import './ResourceLibrary.css';
 
 export default function ResourceLibrary() {
-  const { resources, addResource } = useApp();
+  const { resources, clubs, addResource } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Form State
   const [title, setTitle] = useState('');
-  const [club, setClub] = useState('General Admin');
+  const [club, setClub] = useState(clubs[0]?.name ?? '');
   const [category, setCategory] = useState('Templates');
   const [fileType, setFileType] = useState('PDF');
-  const [size, setSize] = useState('1.5 MB');
+  const [size, setSize] = useState('');
 
   const categories = ['All', 'Templates', 'Guidelines', 'Graphics & Media', 'Financial Forms'];
 
@@ -60,7 +60,7 @@ export default function ResourceLibrary() {
           <p className="text-sm text-secondary mt-1">Official club handbooks, presentation templates, logos, and financial grant forms.</p>
         </div>
 
-        <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
+        <button className="btn btn-primary" onClick={() => setShowUploadModal(true)} disabled={clubs.length === 0}>
           <Plus size={18}/> Upload Resource
         </button>
       </div>
@@ -148,12 +148,8 @@ export default function ResourceLibrary() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Club / Publisher</label>
-                  <select value={club} onChange={e => setClub(e.target.value)}>
-                    <option>General Admin</option>
-                    <option>Robotics & Tech</option>
-                    <option>AI Research Group</option>
-                    <option>Debate Society</option>
-                    <option>Design Guild</option>
+                  <select value={club} onChange={e => setClub(e.target.value)} required>
+                    {clubs.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
                   </select>
                 </div>
 

@@ -1,16 +1,16 @@
-# React + Vite
+# School Clubs Hub
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+## Connect Supabase
 
-Currently, two official plugins are available:
+1. Copy `.env.example` to `.env` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from the Supabase project API settings. Use the publishable key only; never put a secret or service-role key in this Vite app.
+2. In the Supabase dashboard, open **SQL Editor → New query**.
+3. Run the SQL in [`supabase/schema.sql`](supabase/schema.sql). It creates the private per-user app data table and row-level security policies.
+4. Start the app with `npm run dev`, create an account, and sign in. Supabase Auth may ask you to confirm the email before sign-in.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The app starts with empty clubs, events, tasks, suggestions, admissions, attendance, resources, photos, and messages. Changes are saved to the signed-in user's row in `public.user_app_data`. RLS limits access to that user's row.
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- `npm run dev` starts the local development server.
+- `npm run build` builds the production app.
+- `npm run lint` runs Oxlint.

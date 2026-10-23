@@ -33,6 +33,7 @@ export default function Sidebar() {
   ];
 
   const communityNavs = [
+    { path: '/register', label: 'Create a Club', icon: UserPlus },
     { path: '/admissions', label: 'Club Admissions', icon: UserPlus },
     { path: '/rooms', label: 'Room Scheduling', icon: DoorOpen },
     { path: '/suggestions', label: 'Suggestion Box', icon: Lightbulb },

@@ -4,18 +4,18 @@ import { Image as ImageIcon, Heart, Plus, Eye, X, User, Calendar } from 'lucide-
 import './PhotoAlbum.css';
 
 export default function PhotoAlbum() {
-  const { gallery, addPhoto, likePhoto } = useApp();
+  const { gallery, clubs, addPhoto, likePhoto } = useApp();
   const [selectedClubFilter, setSelectedClubFilter] = useState('All');
   const [activeLightbox, setActiveLightbox] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Form State
   const [title, setTitle] = useState('');
-  const [eventName, setEventName] = useState('Robotics Showcase');
-  const [club, setClub] = useState('Robotics & Tech');
-  const [image, setImage] = useState('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80');
+  const [eventName, setEventName] = useState('');
+  const [club, setClub] = useState(clubs[0]?.name ?? '');
+  const [image, setImage] = useState('');
 
-  const clubFilters = ['All', 'Robotics & Tech', 'Debate Society', 'Design Guild'];
+  const clubFilters = ['All', ...new Set([...clubs.map(item => item.name), ...gallery.map(item => item.club)].filter(Boolean))];
 
   const filteredGallery = selectedClubFilter === 'All'
     ? gallery
@@ -46,7 +46,7 @@ export default function PhotoAlbum() {
           <p className="text-sm text-secondary mt-1">High-resolution memories from workshops, hackathons, and campus expos.</p>
         </div>
 
-        <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
+        <button className="btn btn-primary" onClick={() => setShowUploadModal(true)} disabled={clubs.length === 0}>
           <Plus size={18}/> Add Event Photo
         </button>
       </div>
@@ -158,11 +158,8 @@ export default function PhotoAlbum() {
                 </div>
                 <div className="form-group">
                   <label>Club Name</label>
-                  <select value={club} onChange={e => setClub(e.target.value)}>
-                    <option>Robotics & Tech</option>
-                    <option>Debate Society</option>
-                    <option>Design Guild</option>
-                    <option>AI Research Group</option>
+                  <select value={club} onChange={e => setClub(e.target.value)} required>
+                    {clubs.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
                   </select>
                 </div>
               </div>
