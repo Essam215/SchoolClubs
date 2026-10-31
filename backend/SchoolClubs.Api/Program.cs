@@ -498,6 +498,195 @@ app.MapPatch("/api/suggestions/{id:guid}/respond", async (HttpContext c, Db db, 
     return Results.Ok(updated);
 });
 
+// ===== Attendance Tracking =============================================
+
+app.MapGet("/api/events/{id:guid}/attendance", async (HttpContext c, Db db, Guid id) =>
+{
+    var me = await db.Me(c);
+    var ev = await db.One($"events?id=eq.{id}&select=id,club_id,title,capacity,starts_at,ends_at")
+             ?? throw new ApiException(404, "Event not found.");
+    var q = $"event_registrations?event_id=eq.{id}&select=event_id,user_id,status,registered_at,attended_at,user:users!user_id(id,full_name,email,avatar_color,grade)&order=user(full_name).asc";
+    return Results.Ok(await db.Get(q));
+});
+
+app.MapPatch("/api/events/{id:guid}/attendance/{userId:guid}", async (HttpContext c, Db db, Guid id, Guid userId, AttendanceStatusIn i) =>
+{
+    var me = await db.Me(c);
+    var ev = await db.One($"events?id=eq.{id}&select=club_id,title") ?? throw new ApiException(404, "Event not found.");
+    await db.RequireManage(me, G(ev["club_id"]));
+
+    var st = Need(i.Status, "Status").ToLowerInvariant();
+    if (st is not ("registered" or "attended" or "late"))
+        throw new ApiException(400, "Unknown attendance status.");
+
+    var patch = new Dictionary<string, object?>
+    {
+        ["status"] = st,
+        ["attended_at"] = st == "registered" ? null : DateTimeOffset.UtcNow
+    };
+
+    var updated = await db.Patch($"event_registrations?event_id=eq.{id}&user_id=eq.{userId}", patch);
+    if (updated.Count == 0) throw new ApiException(404, "Registration not found.");
+    return Results.Ok(updated[0]);
+});
+
+app.MapPost("/api/events/{id:guid}/attendance/check-in", async (HttpContext c, Db db, Guid id, CheckInIn i) =>
+{
+    var me = await db.Me(c);
+    var ev = await db.One($"events?id=eq.{id}&select=club_id,title") ?? throw new ApiException(404, "Event not found.");
+    await db.RequireManage(me, G(ev["club_id"]));
+
+    var user = await db.One($"users?id=eq.{i.UserId}&select=id,full_name") ?? throw new ApiException(404, "User not found.");
+    var st = (i.Status?.ToLowerInvariant()) is "late" ? "late" : "attended";
+
+    var upserted = (await db.Insert("event_registrations", new Dictionary<string, object?>
+    {
+        ["event_id"] = id,
+        ["user_id"] = i.UserId,
+        ["status"] = st,
+        ["attended_at"] = DateTimeOffset.UtcNow
+    }, upsertOn: "event_id,user_id"))[0]!;
+
+    return Results.Ok(upserted);
+});
+
+// ===== Admissions ======================================================
+
+app.MapGet("/api/admissions", async (HttpContext c, Db db, Guid? club_id, string? status) =>
+{
+    var me = await db.Me(c);
+    var meRole = S(me["role"]);
+    var meId = S(me["id"]);
+
+    var q = "club_applications?select=*,clubs(id,name,color),applicant:users!user_id(id,full_name,email,avatar_color,grade),reviewer:users!reviewed_by(id,full_name)&order=created_at.desc";
+
+    if (meRole == "student")
+    {
+        q += $"&user_id=eq.{meId}";
+    }
+    else if (meRole != "admin")
+    {
+        var manageable = (await db.List($"club_members?user_id=eq.{meId}&role=eq.leader&select=club_id"))
+            .Select(r => S(r!["club_id"]))
+            .Concat((await db.List($"clubs?advisor_id=eq.{meId}&select=id")).Select(r => S(r!["id"])))
+            .Distinct().ToList();
+
+        if (club_id is not null)
+        {
+            await db.RequireManage(me, club_id);
+            q += $"&club_id=eq.{club_id}";
+        }
+        else
+        {
+            if (manageable.Count > 0)
+                q += $"&or=(user_id.eq.{meId},club_id.in.({string.Join(",", manageable)}))";
+            else
+                q += $"&user_id=eq.{meId}";
+        }
+    }
+    else
+    {
+        if (club_id is not null) q += $"&club_id=eq.{club_id}";
+    }
+
+    if (!string.IsNullOrWhiteSpace(status) && status.ToLowerInvariant() != "all")
+        q += $"&status=eq.{status.Trim().ToLowerInvariant()}";
+
+    return Results.Ok(await db.Get(q));
+});
+
+app.MapPost("/api/admissions", async (HttpContext c, Db db, ApplicationIn i) =>
+{
+    var me = await db.Me(c);
+    var motivation = Need(i.Motivation, "Motivation");
+    var club = await db.One($"clubs?id=eq.{i.ClubId}&select=id,name") ?? throw new ApiException(404, "Club not found.");
+
+    var isMember = await db.One($"club_members?club_id=eq.{i.ClubId}&user_id=eq.{S(me["id"])}&select=user_id");
+    if (isMember is not null) throw new ApiException(400, "You are already a member of this club.");
+
+    var existing = await db.One($"club_applications?club_id=eq.{i.ClubId}&user_id=eq.{S(me["id"])}&status=in.(pending,interview)&select=id");
+    if (existing is not null) throw new ApiException(400, "You already have an active application under review for this club.");
+
+    var roleApplied = string.IsNullOrWhiteSpace(i.RoleApplied) ? "member" : i.RoleApplied.Trim();
+    var created = (await db.Insert("club_applications", new Dictionary<string, object?>
+    {
+        ["club_id"] = i.ClubId,
+        ["user_id"] = G(me["id"]),
+        ["role_applied"] = roleApplied,
+        ["motivation"] = motivation,
+        ["skills"] = string.IsNullOrWhiteSpace(i.Skills) ? null : i.Skills.Trim(),
+        ["status"] = "pending"
+    }))[0]!;
+
+    var staff = (await db.Staff(i.ClubId)).Where(u => u != G(me["id"]));
+    await db.Notify(staff, "system", "New club application",
+        $"{S(me["full_name"])} applied to join {S(club["name"])} as {roleApplied}.", "admissions");
+
+    return Results.Ok(created);
+});
+
+app.MapDelete("/api/admissions/{id:guid}", async (HttpContext c, Db db, Guid id) =>
+{
+    var me = await db.Me(c);
+    var appRow = await db.One($"club_applications?id=eq.{id}&select=*") ?? throw new ApiException(404, "Application not found.");
+
+    var isApplicant = S(appRow["user_id"]) == S(me["id"]);
+    var isAdmin = S(me["role"]) == "admin";
+    if (!isApplicant && !isAdmin) throw new ApiException(403, "You can only withdraw your own applications.");
+    if (S(appRow["status"]) != "pending" && !isAdmin) throw new ApiException(400, "Only pending applications can be withdrawn.");
+
+    await db.Delete($"club_applications?id=eq.{id}");
+    return Results.NoContent();
+});
+
+app.MapPatch("/api/admissions/{id:guid}/review", async (HttpContext c, Db db, Guid id, ReviewIn i) =>
+{
+    var me = await db.Me(c);
+    var appRow = await db.One($"club_applications?id=eq.{id}&select=*,clubs(name)") ?? throw new ApiException(404, "Application not found.");
+    var clubId = G(appRow["club_id"]);
+    await db.RequireManage(me, clubId);
+
+    var newStatus = Need(i.Status, "Status").ToLowerInvariant();
+    if (newStatus is not ("approved" or "rejected" or "interview"))
+        throw new ApiException(400, "Status must be approved, rejected, or interview.");
+
+    var updated = (await db.Patch($"club_applications?id=eq.{id}", new Dictionary<string, object?>
+    {
+        ["status"] = newStatus,
+        ["feedback"] = string.IsNullOrWhiteSpace(i.Feedback) ? null : i.Feedback.Trim(),
+        ["reviewed_by"] = G(me["id"]),
+        ["reviewed_at"] = DateTimeOffset.UtcNow
+    }))[0]!;
+
+    var clubName = appRow["clubs"]?["name"]?.GetValue<string>() ?? "the club";
+    var applicantId = G(appRow["user_id"]);
+
+    if (newStatus == "approved")
+    {
+        await db.Insert("club_members", new Dictionary<string, object?>
+        {
+            ["club_id"] = clubId,
+            ["user_id"] = applicantId,
+            ["role"] = "member"
+        }, upsertOn: "club_id,user_id");
+
+        await db.Notify(new[] { applicantId }, "system", "🎉 Application Approved!",
+            $"Congratulations! Your application to join {clubName} was approved. Welcome to the club!", "admissions");
+    }
+    else if (newStatus == "rejected")
+    {
+        await db.Notify(new[] { applicantId }, "system", "Application update",
+            $"Your application to {clubName} was not accepted this term.", "admissions");
+    }
+    else if (newStatus == "interview")
+    {
+        await db.Notify(new[] { applicantId }, "system", "Interview Scheduled",
+            $"An interview was scheduled for your {clubName} application. Check the feedback notes.", "admissions");
+    }
+
+    return Results.Ok(updated);
+});
+
 app.Run();
 
 record LoginIn(string? Email);
@@ -507,3 +696,7 @@ record SuggestionIn(Guid? ClubId, string? Title, string? Body, string? Category,
 record RespondIn(string Status, string? Response);
 record PointAwardIn(Guid ClubId, Guid UserId, int Points, string? Reason);
 record ResourceIn(Guid? ClubId, string? Title, string? Description, string? Category, string? ResourceType, string? Url);
+record AttendanceStatusIn(string Status);
+record CheckInIn(Guid UserId, string? Status);
+record ApplicationIn(Guid ClubId, string? RoleApplied, string Motivation, string? Skills);
+record ReviewIn(string Status, string? Feedback);
