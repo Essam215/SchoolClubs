@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, CalendarDays, ListTodo, Lightbulb, LogOut, Moon, Sun, Rocket } from 'lucide-react';
+import { Award, Bell, BookOpen, CalendarDays, ListTodo, Lightbulb, LogOut, Moon, Sun, Rocket } from 'lucide-react';
 import { api, setUserId } from './api';
 import { Avatar, Ctx, Loading, roleLabel } from './ui';
 import Login from './pages/Login';
@@ -7,14 +7,18 @@ import Events from './pages/Events';
 import Tasks from './pages/Tasks';
 import Notifications from './pages/Notifications';
 import Suggestions from './pages/Suggestions';
+import Leaderboard from './pages/Leaderboard';
+import ResourceLibrary from './pages/ResourceLibrary';
 
 const NAV = [
   { id: 'events', label: 'Events', icon: CalendarDays },
   { id: 'tasks', label: 'Tasks', icon: ListTodo },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'suggestions', label: 'Suggestion box', icon: Lightbulb },
+  { id: 'leaderboard', label: 'Leaderboard', icon: Award },
+  { id: 'resources', label: 'Resource library', icon: BookOpen },
 ];
-const PAGES = { events: Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions };
+const PAGES = { events: Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions, leaderboard: Leaderboard, resources: ResourceLibrary };
 
 export default function App() {
   const [user, setUser] = useState(() => {

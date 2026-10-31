@@ -1,12 +1,19 @@
 # School Clubs Hub
 
 React (Vite) frontend, .NET 8 minimal API, Supabase (PostgreSQL) database.
-Features: Event management, Task management, Notifications, Suggestion box.
+Features: Event management, Task management, Notifications, Suggestion box, Leaderboard, Resource library.
 
 ## 1. Database (Supabase)
-Open your project > SQL Editor, then run these in order:
-1. `database/01_schema.sql` (creates tables; drops existing ones with the same names)
-2. `database/02_seed.sql` (16 users, 5 clubs, 10 events, 19 tasks, 7 suggestions, notifications)
+For a fresh database, open your project > SQL Editor and run these in order:
+1. `database/01_schema.sql` (creates the schema; drops existing tables with the same names)
+2. `database/02_seed.sql` (seeds users, clubs, events, tasks, suggestions and notifications)
+3. `database/03_leaderboard_resources.sql` (safe to run after the schema)
+4. `database/04_seed_leaderboard_resources.sql` (adds sample points and learning resources)
+
+For an existing database that already has the original seed data, run only
+`database/03_leaderboard_resources.sql` and `database/04_seed_leaderboard_resources.sql`.
+Do not rerun `01_schema.sql` on a database with data you want to keep; it drops and
+recreates the existing tables.
 
 ## 2. Backend
 Needs the .NET 8 SDK.
@@ -14,10 +21,12 @@ Needs the .NET 8 SDK.
 cd backend/SchoolClubs.Api
 dotnet run
 ```
-Runs on http://localhost:5080. Copy `appsettings.example.json` to `appsettings.json`
-in `backend/SchoolClubs.Api`, then set `Supabase:Url` and `Supabase:Key` to your
-Supabase project values. The local settings file is ignored by Git so credentials are
-not committed.
+Runs on http://localhost:5080 by default. Copy `appsettings.example.json` to
+`appsettings.json` in `backend/SchoolClubs.Api`, then set `Supabase:Url` and
+`Supabase:Key` to your Supabase project values. In Supabase SQL Editor, run
+the database. For a database that has already been set up, run only the two new
+leaderboard/resource SQL files described above. The local settings file is ignored
+by Git so credentials are not committed.
 
 ## 3. Frontend
 ```
@@ -32,6 +41,8 @@ Open http://localhost:5173. Pick any account on the sign-in screen
 - Creating an event notifies the club's members. Editing or cancelling it notifies registered students.
 - Assigning a task notifies the assignee. Moving a task to review/done notifies the task creator.
 - Submitting a suggestion notifies the club's leaders and advisor. Responding notifies the author, even if anonymous.
+- Club staff can award points to members; the leaderboard ranks those saved awards.
+- Club staff can maintain club resources, and advisors/admins can also add school-wide resources.
 - Permissions: admins manage everything; advisors manage their clubs; club leaders manage clubs they lead; students register for events, update their own tasks and submit/vote on suggestions.
 
 ## Before production

@@ -3,6 +3,9 @@ using System.Text.Json.Nodes;
 using SchoolClubs.Api;
 
 var builder = WebApplication.CreateBuilder(args);
+if (string.IsNullOrWhiteSpace(builder.Configuration["Urls"]))
+    builder.WebHost.UseUrls("http://localhost:5080");
+
 builder.Services.Configure<SupabaseOptions>(builder.Configuration.GetSection("Supabase"));
 builder.Services.AddHttpClient<Db>();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
@@ -28,6 +31,15 @@ static Guid G(JsonNode? n) => Db.G(n);
 static string S(JsonNode? n) => n!.GetValue<string>();
 static string Need(string? v, string what) =>
     string.IsNullOrWhiteSpace(v) ? throw new ApiException(400, $"{what} is required.") : v.Trim();
+
+static string NeedHttpUrl(string? value)
+{
+    var url = Need(value, "URL");
+    if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) ||
+        (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
+        throw new ApiException(400, "URL must be an absolute HTTP or HTTPS address.");
+    return url;
+}
 
 static JsonObject Pick(JsonObject body, string[] allowed)
 {
@@ -240,6 +252,138 @@ app.MapDelete("/api/tasks/{id:guid}", async (HttpContext c, Db db, Guid id) =>
     return Results.NoContent();
 });
 
+// ===== Leaderboard =====================================================
+
+app.MapGet("/api/leaderboard", async (HttpContext c, Db db, string? period, Guid? club_id) =>
+{
+    await db.Me(c);
+    var range = period ?? "all";
+    if (range is not ("all" or "month")) throw new ApiException(400, "Unknown leaderboard period.");
+
+    var query = "club_point_awards?select=club_id,user_id,points,created_at,user:users!user_id(id,full_name,avatar_color,grade),clubs(id,name,color)";
+    if (club_id is not null) query += $"&club_id=eq.{club_id}";
+    if (range == "month")
+    {
+        var since = Uri.EscapeDataString(DateTimeOffset.UtcNow.AddDays(-30).ToString("O"));
+        query += $"&created_at=gte.{since}";
+    }
+
+    var rows = await db.List(query);
+    var ranked = rows
+        .GroupBy(row => S(row!["user_id"]))
+        .Select(group =>
+        {
+            var first = group.First()!.AsObject();
+            return new
+            {
+                user = first["user"]?.DeepClone(),
+                points = group.Sum(row => row!["points"]!.GetValue<int>()),
+                award_count = group.Count(),
+                club_count = group.Select(row => S(row!["club_id"])).Distinct().Count()
+            };
+        })
+        .OrderByDescending(entry => entry.points)
+        .ThenBy(entry => S(entry.user!.AsObject()["full_name"]), StringComparer.OrdinalIgnoreCase)
+        .Select((entry, index) => new
+        {
+            rank = index + 1,
+            entry.user,
+            entry.points,
+            entry.award_count,
+            entry.club_count
+        });
+
+    return Results.Ok(ranked);
+});
+
+app.MapPost("/api/leaderboard/awards", async (HttpContext c, Db db, PointAwardIn i) =>
+{
+    var me = await db.Me(c);
+    await db.RequireManage(me, i.ClubId);
+    if (i.Points is < 1 or > 100) throw new ApiException(400, "Points must be between 1 and 100.");
+    var reason = Need(i.Reason, "Reason");
+    if (reason.Length > 160) throw new ApiException(400, "Reason must be 160 characters or fewer.");
+    var member = await db.One($"club_members?club_id=eq.{i.ClubId}&user_id=eq.{i.UserId}&select=user_id");
+    if (member is null) throw new ApiException(400, "Points can only be awarded to a member of this club.");
+
+    var award = (await db.Insert("club_point_awards", new Dictionary<string, object?>
+    {
+        ["club_id"] = i.ClubId, ["user_id"] = i.UserId, ["awarded_by"] = G(me["id"]),
+        ["points"] = i.Points, ["reason"] = reason
+    }))[0]!;
+    if (i.UserId != G(me["id"]))
+        await db.Notify(new[] { i.UserId }, "system", "You earned leaderboard points",
+            $"{S(me["full_name"])} awarded you {i.Points} points: {reason}", "leaderboard");
+    return Results.Ok(award);
+});
+
+// ===== Resource library ================================================
+
+app.MapGet("/api/resources", async (HttpContext c, Db db, Guid? club_id, string? category) =>
+{
+    await db.Me(c);
+    var query = "resources?select=*,clubs(id,name,color),creator:users!created_by(full_name)&order=created_at.desc";
+    if (club_id is not null) query += $"&or=(club_id.is.null,club_id.eq.{club_id})";
+    if (!string.IsNullOrWhiteSpace(category))
+        query += $"&category=eq.{Uri.EscapeDataString(category.Trim())}";
+    return Results.Ok(await db.Get(query));
+});
+
+app.MapPost("/api/resources", async (HttpContext c, Db db, ResourceIn i) =>
+{
+    var me = await db.Me(c);
+    await db.RequireManage(me, i.ClubId);
+    var title = Need(i.Title, "Title");
+    var category = Need(i.Category, "Category");
+    if (title.Length > 120 || category.Length > 60)
+        throw new ApiException(400, "Title must be 120 characters or fewer and category 60 characters or fewer.");
+    if (i.ResourceType is not ("article" or "video" or "document" or "website"))
+        throw new ApiException(400, "Unknown resource type.");
+
+    var created = (await db.Insert("resources", new Dictionary<string, object?>
+    {
+        ["club_id"] = i.ClubId, ["created_by"] = G(me["id"]), ["title"] = title,
+        ["description"] = string.IsNullOrWhiteSpace(i.Description) ? null : i.Description.Trim(),
+        ["category"] = category, ["resource_type"] = i.ResourceType, ["url"] = NeedHttpUrl(i.Url)
+    }))[0]!;
+    return Results.Ok(created);
+});
+
+app.MapPut("/api/resources/{id:guid}", async (HttpContext c, Db db, Guid id, ResourceIn i) =>
+{
+    var me = await db.Me(c);
+    var existing = await db.One($"resources?id=eq.{id}&select=club_id")
+        ?? throw new ApiException(404, "Resource not found.");
+    Guid? existingClubId = existing["club_id"] is JsonNode club ? G(club) : null;
+    await db.RequireManage(me, existingClubId);
+    await db.RequireManage(me, i.ClubId);
+    var title = Need(i.Title, "Title");
+    var category = Need(i.Category, "Category");
+    if (title.Length > 120 || category.Length > 60)
+        throw new ApiException(400, "Title must be 120 characters or fewer and category 60 characters or fewer.");
+    if (i.ResourceType is not ("article" or "video" or "document" or "website"))
+        throw new ApiException(400, "Unknown resource type.");
+
+    var updated = (await db.Patch($"resources?id=eq.{id}", new Dictionary<string, object?>
+    {
+        ["club_id"] = i.ClubId, ["title"] = title,
+        ["description"] = string.IsNullOrWhiteSpace(i.Description) ? null : i.Description.Trim(),
+        ["category"] = category, ["resource_type"] = i.ResourceType, ["url"] = NeedHttpUrl(i.Url)
+    }))[0]!;
+    return Results.Ok(updated);
+});
+
+app.MapDelete("/api/resources/{id:guid}", async (HttpContext c, Db db, Guid id) =>
+{
+    var me = await db.Me(c);
+    var resource = await db.One($"resources?id=eq.{id}&select=club_id")
+        ?? throw new ApiException(404, "Resource not found.");
+    Guid? clubId = resource["club_id"] is JsonNode club ? G(club) : null;
+    await db.RequireManage(me, clubId);
+    await db.Delete($"resources?id=eq.{id}");
+    return Results.NoContent();
+});
+
 // ===== Notifications ====================================================
 
 app.MapGet("/api/notifications", async (HttpContext c, Db db, bool? unread) =>
@@ -361,3 +505,5 @@ record EventIn(Guid ClubId, string? Title, string? Description, string? Location
 record TaskIn(Guid ClubId, Guid? EventId, string? Title, string? Description, string? Priority, DateOnly? DueDate, Guid? AssignedTo);
 record SuggestionIn(Guid? ClubId, string? Title, string? Body, string? Category, bool IsAnonymous);
 record RespondIn(string Status, string? Response);
+record PointAwardIn(Guid ClubId, Guid UserId, int Points, string? Reason);
+record ResourceIn(Guid? ClubId, string? Title, string? Description, string? Category, string? ResourceType, string? Url);

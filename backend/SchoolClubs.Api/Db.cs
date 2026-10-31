@@ -25,8 +25,16 @@ public class Db
     public Db(HttpClient http, IOptions<SupabaseOptions> options)
     {
         var o = options.Value;
-        if (string.IsNullOrWhiteSpace(o.Url) || string.IsNullOrWhiteSpace(o.Key))
-            throw new InvalidOperationException("Set Supabase:Url and Supabase:Key in appsettings.json or environment variables.");
+        if (string.IsNullOrWhiteSpace(o.Url) || string.IsNullOrWhiteSpace(o.Key) ||
+            o.Url.Contains("YOUR_PROJECT_REF", StringComparison.OrdinalIgnoreCase) ||
+            o.Key.Contains("your-publishable-key", StringComparison.OrdinalIgnoreCase) ||
+            !Uri.TryCreate(o.Url, UriKind.Absolute, out var supabaseUri) ||
+            (supabaseUri.Scheme != Uri.UriSchemeHttps && supabaseUri.Scheme != Uri.UriSchemeHttp))
+        {
+            throw new ApiException(503,
+                "Supabase isn't configured. Copy appsettings.example.json to appsettings.json, set Supabase:Url and Supabase:Key to your project values, then restart the API.");
+        }
+
         _http = http;
         _http.BaseAddress = new Uri(o.Url.TrimEnd('/') + "/rest/v1/");
         // Publishable keys are not JWTs, so they go in the apikey header only.

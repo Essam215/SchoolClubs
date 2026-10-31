@@ -4,7 +4,7 @@
 
 create extension if not exists pgcrypto;
 
-drop table if exists suggestion_votes, suggestions, notifications, tasks,
+drop table if exists club_point_awards, resources, suggestion_votes, suggestions, notifications, tasks,
   event_registrations, events, club_members, clubs, users cascade;
 
 -- People -------------------------------------------------------------
@@ -115,6 +115,30 @@ create table suggestion_votes (
   primary key (suggestion_id, user_id)
 );
 
+-- Leaderboard ----------------------------------------------------------
+create table club_point_awards (
+  id          uuid primary key default gen_random_uuid(),
+  club_id     uuid not null references clubs(id) on delete cascade,
+  user_id     uuid not null references users(id) on delete cascade,
+  awarded_by  uuid references users(id) on delete set null,
+  points      int not null check (points between 1 and 100),
+  reason      text not null,
+  created_at  timestamptz not null default now()
+);
+
+-- Resource library -----------------------------------------------------
+create table resources (
+  id           uuid primary key default gen_random_uuid(),
+  club_id      uuid references clubs(id) on delete cascade,
+  created_by   uuid references users(id) on delete set null,
+  title        text not null,
+  description  text,
+  category     text not null default 'other',
+  resource_type text not null check (resource_type in ('article','video','document','website')),
+  url          text not null,
+  created_at   timestamptz not null default now()
+);
+
 -- Indexes -------------------------------------------------------------
 create index on club_members (user_id);
 create index on events (club_id, starts_at);
@@ -123,6 +147,8 @@ create index on tasks (club_id, status);
 create index on tasks (assigned_to);
 create index on notifications (user_id, is_read, created_at desc);
 create index on suggestions (club_id, created_at desc);
+create index on club_point_awards (club_id, user_id, created_at desc);
+create index on resources (club_id, category, created_at desc);
 
 -- Row Level Security --------------------------------------------------
 -- The .NET API talks to Supabase with the publishable (anon) key, so the
@@ -133,7 +159,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['users','clubs','club_members','events','event_registrations',
-    'tasks','notifications','suggestions','suggestion_votes']
+    'tasks','notifications','suggestions','suggestion_votes','club_point_awards','resources']
   loop
     execute format('alter table %I enable row level security', t);
     execute format('create policy "api_access" on %I for all to anon, authenticated using (true) with check (true)', t);
