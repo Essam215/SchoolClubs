@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Club Chatbot</title>
+<style>
+  :root { color-scheme: dark; --bg:#212121; --panel:#2f2f2f; --panel2:#181818; --text:#ececec; --muted:#a8a8a8; --line:#414141; --accent:#fff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; }
+  .app { width:100%; display:flex; flex-direction:column; min-height:0; }
+  header { height:58px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; border-bottom:1px solid var(--line); background:rgba(33,33,33,.95); }
+  .brand { display:flex; gap:10px; align-items:center; font-weight:650; }
+  .logo { width:30px;height:30px;border-radius:10px;background:#f2f2f2;color:#202020;display:grid;place-items:center;font-weight:800; }
+  .settings-btn { border:1px solid var(--line); color:var(--text); background:transparent; padding:7px 11px; border-radius:9px; cursor:pointer; }
+  main { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; overflow:auto; }
+  #messages { width:min(100%,800px); padding:28px 22px 150px; display:flex; flex-direction:column; gap:24px; }
+  .welcome { margin:auto; text-align:center; padding:10vh 20px 24px; max-width:650px; }
+  .welcome .biglogo { width:54px;height:54px;border-radius:18px;background:#f1f1f1;color:#222;display:grid;place-items:center;font-size:25px;font-weight:800;margin:0 auto 20px; }
+  h1 { font-size:28px; line-height:1.2; margin:0 0 10px; font-weight:650; }
+  .welcome p { color:var(--muted); margin:0; }
+  .message { display:flex; gap:12px; align-items:flex-start; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .avatar { width:30px;height:30px;flex:0 0 30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700; }
+  .user .avatar { background:#565656; }
+  .assistant .avatar { background:#d8f3e5;color:#163d2a; }
+  .content { padding-top:3px; min-width:0; }
+  .content p { margin:0 0 10px; }
+  .content p:last-child { margin-bottom:0; }
+  .content h1,.content h2,.content h3 { line-height:1.3; margin:18px 0 8px; font-weight:650; }
+  .content h1 { font-size:1.35rem; } .content h2 { font-size:1.18rem; } .content h3 { font-size:1.05rem; }
+  .content ul,.content ol { margin:7px 0 13px; padding-left:25px; }
+  .content li { margin:5px 0; padding-left:2px; }
+  .content blockquote { margin:10px 0; padding:4px 0 4px 12px; border-left:3px solid #666; color:#c8c8c8; }
+  .content code { background:#171717; border:1px solid #414141; border-radius:5px; padding:1px 5px; font: .92em ui-monospace,SFMono-Regular,Consolas,monospace; }
+  .content pre { background:#171717; border:1px solid #414141; border-radius:10px; padding:12px; overflow:auto; }
+  .content pre code { background:none; border:0; padding:0; }
+  .content a { color:#a8d8ff; text-decoration:underline; }
+  .content hr { border:0; border-top:1px solid var(--line); margin:14px 0; }
+  .typing { color:var(--muted); font-style:italic; }
+  .composer-wrap { position:fixed; bottom:0; left:0; right:0; padding:22px 18px 12px; background:linear-gradient(transparent,var(--bg) 25%); }
+  .composer { width:min(100%,800px); margin:0 auto; border:1px solid #555; background:var(--panel); border-radius:24px; padding:12px 12px 10px 18px; box-shadow:0 8px 28px #0002; }
+  textarea { width:100%; border:0; outline:0; resize:none; min-height:28px; max-height:160px; color:var(--text); background:transparent; font:inherit; display:block; }
+  .composer-bottom { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; }
+  .hint { color:var(--muted); font-size:12px; }
+  .send { border:0; background:#f3f3f3; color:#191919; border-radius:50%; width:36px;height:36px; cursor:pointer; font-size:19px; display:grid;place-items:center; }
+  .send:disabled { opacity:.45; cursor:not-allowed; }
+  .footnote { text-align:center; color:var(--muted); font-size:11px; margin:7px auto 0; }
+  dialog { width:min(560px,calc(100% - 28px)); border:1px solid var(--line); border-radius:16px; padding:20px; background:#262626; color:var(--text); }
+  dialog::backdrop { background:#0009; }
+  dialog h2 { margin:0 0 8px; font-size:20px; }
+  label { display:block; font-size:13px; color:#c8c8c8; margin:14px 0 6px; }
+  input,select { width:100%; border:1px solid #555; border-radius:9px; background:#191919; color:var(--text); padding:10px; font:inherit; }
+  .dialog-actions { display:flex;justify-content:flex-end;gap:8px;margin-top:18px; }
+  .primary { background:#f1f1f1;color:#171717;border:0; }
+  .dialog-actions button { padding:9px 13px;border-radius:9px;cursor:pointer; }
+  .error { color:#ffb4ab; }
+  @media(max-width:600px) { header{padding:0 13px;} #messages{padding:22px 15px 145px;} .welcome{padding-top:8vh;} h1{font-size:24px;} .hint{max-width:210px;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><div class="logo">C</div><span>Club Chatbot</span></div>
+    <button class="settings-btn" id="settingsBtn">⚙ Connection</button>
+  </header>
+  <main id="main">
+    <section class="welcome" id="welcome">
+      <div class="biglogo">C</div>
+      <h1>What would you like to know?</h1>
+      <p>Ask about clubs, events, or get help planning a new event.</p>
+    </section>
+    <section id="messages" aria-live="polite"></section>
+  </main>
+  <div class="composer-wrap">
+    <form class="composer" id="chatForm">
+      <textarea id="prompt" rows="1" placeholder="Message your chatbot…" aria-label="Message your chatbot"></textarea>
+      <div class="composer-bottom">
+        <span class="hint">Enter to send · Shift+Enter for a new line</span>
+        <button class="send" id="sendBtn" type="submit" aria-label="Send message">↑</button>
+      </div>
+    </form>
+    <div class="footnote">Responses come from your n8n workflow. Don't enter private or sensitive information.</div>
+  </div>
+</div>
+
+<dialog id="settings">
+  <h2>Connect to your n8n webhook</h2>
+  <p style="color:#aaa;margin:0;font-size:13px">Paste your current public webhook URL. The Cloudflare quick-tunnel URL may change when restarted.</p>
+  <label for="webhookUrl">Webhook URL</label>
+  <input id="webhookUrl" type="url" value="https://bear-paris-antique-quite.trycloudflare.com/webhook/4646c495-e62f-49e8-b503-b1e07c0e87f0" placeholder="https://your-domain/webhook/your-id">
+  <label for="bodyField">Message field in request JSON</label>
+  <select id="bodyField">
+    <option value="chatInput">chatInput (common for n8n AI Agent chat workflows)</option>
+    <option value="message">message</option>
+    <option value="text">text</option>
+  </select>
+  <div class="dialog-actions">
+    <button class="settings-btn" id="cancelSettings" type="button">Cancel</button>
+    <button class="settings-btn primary" id="saveSettings" type="button">Save connection</button>
+  </div>
+</dialog>
+<script>
+(() => {
+  const form = document.getElementById('chatForm');
+  const input = document.getElementById('prompt');
+  const messages = document.getElementById('messages');
+  const welcome = document.getElementById('welcome');
+  const sendBtn = document.getElementById('sendBtn');
+  const settings = document.getElementById('settings');
+  const webhookInput = document.getElementById('webhookUrl');
+  const bodyField = document.getElementById('bodyField');
+  let busy = false;
+  let webhookUrl = webhookInput.value;
+  let fieldName = 'chatInput';
+
+  function addMessage(role, text, extraClass='') {
+    welcome.style.display = 'none';
+    const row = document.createElement('div');
+    row.className = `message ${role}`;
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = role === 'user' ? 'You' : 'AI';
+    const content = document.createElement('div');
+    content.className = 'content ' + extraClass;
+    // Render plain text safely; preserve line breaks.
+    const p = document.createElement('p');
+    p.textContent = text;
+    content.appendChild(p);
+    row.append(avatar, content);
+    messages.appendChild(row);
+    document.getElementById('main').scrollTop = document.getElementById('main').scrollHeight;
+    return { row, content, p };
+  }
+
+  function responseText(data) {
+    if (typeof data === 'string') return data;
+    if (data == null) return 'The workflow returned an empty response.';
+    if (Array.isArray(data)) return data.map(responseText).join('\\n');
+    if (typeof data === 'object') {
+      for (const key of ['output','response','text','message','answer','reply']) {
+        if (typeof data[key] === 'string') return data[key];
+      }
+      return JSON.stringify(data, null, 2);
+    }
+    return String(data);
+  }
+
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  });
+  document.getElementById('settingsBtn').addEventListener('click', () => {
+    webhookInput.value = webhookUrl;
+    bodyField.value = fieldName;
+    settings.showModal();
+  });
+  document.getElementById('cancelSettings').addEventListener('click', () => settings.close());
+  document.getElementById('saveSettings').addEventListener('click', () => {
+    webhookUrl = webhookInput.value.trim();
+    fieldName = bodyField.value;
+    settings.close();
+    addMessage('assistant', 'Connection settings saved in this page session. Send a message to test the webhook.');
+  });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const message = input.value.trim();
+    if (!message || busy) return;
+    if (!webhookUrl) {
+      addMessage('assistant', 'Please open Connection and enter your n8n webhook URL.', 'error');
+      return;
+    }
+    addMessage('user', message);
+    input.value = '';
+    input.style.height = 'auto';
+    busy = true;
+    sendBtn.disabled = true;
+    const waiting = addMessage('assistant', 'Thinking…', 'typing');
+    try {
+      // Keep one stable session ID per browser so n8n memory can recognize this conversation.
+      let sessionId = localStorage.getItem('clubChatSessionId');
+      if (!sessionId) {
+        sessionId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+          ? window.crypto.randomUUID()
+          : 'session-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+        localStorage.setItem('clubChatSessionId', sessionId);
+      }
+
+      const payload = { [fieldName]: message, sessionId };
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const raw = await response.text();
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${raw.slice(0, 350) || response.statusText}`);
+      let data;
+      try { data = JSON.parse(raw); } catch { data = raw; }
+      waiting.content.innerHTML = renderMarkdown(responseText(data));
+      waiting.content.classList.remove('typing');
+    } catch (err) {
+      waiting.p.textContent = 'Could not reach the chatbot. ' + (err.message || String(err)) +
+        '\\n\\nCheck that the tunnel is running, the n8n workflow is active, and the webhook accepts browser requests (CORS). If your workflow expects a different JSON field, change it in Connection settings.';
+      waiting.content.classList.remove('typing');
+      waiting.content.classList.add('error');
+    } finally {
+      busy = false;
+      sendBtn.disabled = false;
+      input.focus();
+      document.getElementById('main').scrollTop = document.getElementById('main').scrollHeight;
+    }
+  });
+  input.focus();
+})();
+</script>
+</body>
+</html>
