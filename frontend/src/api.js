@@ -1,5 +1,16 @@
-const BASE = import.meta.env.VITE_API_URL || '/api';
+import axios from 'axios';
+
+const configuredUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, '');
+const BASE = configuredUrl
+  ? `${configuredUrl.replace(/\/api$/i, '')}/api`
+  : '/api';
+
 let userId = localStorage.getItem('uid');
+
+const client = axios.create({
+  baseURL: BASE,
+  headers: { 'Content-Type': 'application/json' },
+});
 
 export function setUserId(id) {
   userId = id;
@@ -8,20 +19,25 @@ export function setUserId(id) {
 }
 
 async function request(method, path, body) {
-  let res;
   try {
-    res = await fetch(BASE + path, {
+    const response = await client.request({
       method,
-      headers: { 'Content-Type': 'application/json', ...(userId ? { 'X-User-Id': userId } : {}) },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      url: path,
+      data: body,
+      headers: userId ? { 'X-User-Id': userId } : undefined,
     });
-  } catch {
+    return response.data;
+  } catch (error) {
+    if (!axios.isAxiosError(error)) throw error;
+
+    if (error.response) {
+      const data = error.response.data;
+      const message = data && typeof data === 'object' ? data.error : null;
+      throw new Error(message || `Request failed (${error.response.status})`);
+    }
+
     throw new Error("Can't reach the server. Check that the API is running.");
   }
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
-  return data;
 }
 
 export const api = {

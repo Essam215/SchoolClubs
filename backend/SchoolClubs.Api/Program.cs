@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using SchoolClubs.Api;
 
 var builder = WebApplication.CreateBuilder(args);
-if (string.IsNullOrWhiteSpace(builder.Configuration["Urls"]))
+if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(builder.Configuration["Urls"]))
     builder.WebHost.UseUrls("http://localhost:5080");
 
 builder.Services.Configure<SupabaseOptions>(builder.Configuration.GetSection("Supabase"));
