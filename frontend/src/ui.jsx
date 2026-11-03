@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, UserPlus, ClipboardCheck } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
 
 export const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
@@ -74,3 +75,19 @@ export function Empty({ icon: Icon, title, text }) {
 }
 
 export const Loading = () => <div className="loading">Loading…</div>;
+
+// مكوّن روابط القائمة الجانبية المحدث ليشمل صفحات Admissions و Attendance Tracking
+export function SidebarNavLinks() {
+  return (
+    <div className="sidebar-extra-links">
+      <NavLink to="/admissions" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+        <UserPlus size={18} />
+        <span>Admissions</span>
+      </NavLink>
+      <NavLink to="/attendance" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+        <ClipboardCheck size={18} />
+        <span>Attendance Tracking</span>
+      </NavLink>
+    </div>
+  );
+}
