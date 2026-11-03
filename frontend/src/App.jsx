@@ -19,6 +19,8 @@ const NAV = [
   { id: 'suggestions', label: 'Suggestion box', icon: Lightbulb },
   { id: 'leaderboard', label: 'Leaderboard', icon: Award },
   { id: 'resources', label: 'Resource library', icon: BookOpen },
+  { id: 'admissions', label: 'Admissions', icon: UserPlus },
+  { id: 'attendance', label: 'Attendance Tracking', icon: UserCheck },
 ];
 const PAGES = { events: Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions, leaderboard: Leaderboard, resources: ResourceLibrary, admissions: Admissions, attendance: AttendanceTracking };
 
