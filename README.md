@@ -1,7 +1,7 @@
 # School Clubs Hub
 
 React (Vite) frontend, .NET 8 minimal API, Supabase (PostgreSQL) database.
-Features: Event management, Task management, Notifications, Suggestion box, Leaderboard, Resource library.
+Features: Event management, Task management, Notifications, Suggestion box, Leaderboard, Resource library, Admissions, Attendance tracking.
 
 ## 1. Database (Supabase)
 For a fresh database, open your project > SQL Editor and run these in order:
@@ -9,6 +9,7 @@ For a fresh database, open your project > SQL Editor and run these in order:
 2. `database/02_seed.sql` (seeds users, clubs, events, tasks, suggestions and notifications)
 3. `database/03_leaderboard_resources.sql` (safe to run after the schema)
 4. `database/04_seed_leaderboard_resources.sql` (adds sample points and learning resources)
+5. `database/05_admissions_attendance.sql` (adds admissions club applications and attendance tracking timestamps)
 
 For an existing database that already has the original seed data, run only
 `database/03_leaderboard_resources.sql` and `database/04_seed_leaderboard_resources.sql`.
@@ -68,6 +69,8 @@ that site as the API URL. The hosting plan must support .NET 8.
 - Submitting a suggestion notifies the club's leaders and advisor. Responding notifies the author, even if anonymous.
 - Club staff can award points to members; the leaderboard ranks those saved awards.
 - Club staff can maintain club resources, and advisors/admins can also add school-wide resources.
+- Students can apply to join clubs; leaders/advisors review applications, and approved candidates are automatically enrolled as club members.
+- Event organizers can track attendee check-ins in real time with quick badge lookup and turnout rates.
 - Permissions: admins manage everything; advisors manage their clubs; club leaders manage clubs they lead; students register for events, update their own tasks and submit/vote on suggestions.
 
 ## Before production
