@@ -69,6 +69,22 @@ that site as the API URL. The hosting plan must support .NET 8.
 5. Check `https://your-api-name.runasp.net/api/health`; a working API responds with
    `{"ok":true}`.
 
+### Deploying with GitHub Actions
+The repository includes a manual backend deployment workflow at
+`.github/workflows/deploy-backend.yml`. In the GitHub repository settings, add these
+Actions secrets using the FTP server, username, password, and application-root path
+provided by MonsterASP.NET:
+
+- `MONSTERASP_FTP_BASE_URL`: FTP URL including the remote application-root directory,
+  for example `ftp://webftp.monsterasp.net/<your-app-root>`
+- `MONSTERASP_FTP_USERNAME`
+- `MONSTERASP_FTP_PASSWORD`
+
+Then open **Actions → Deploy backend to MonsterASP.NET → Run workflow**. The workflow
+publishes the API and uploads the publish files without deleting other files on the server.
+It does not run database migrations; apply outstanding SQL migration files in Supabase
+before deploying features that depend on them.
+
 ## How the features connect
 - Creating an event notifies the club's members. Editing or cancelling it notifies registered students.
 - Assigning a task notifies the assignee. Moving a task to review/done notifies the task creator.
