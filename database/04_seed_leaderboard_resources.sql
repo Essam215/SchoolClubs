@@ -1,4 +1,4 @@
--- Seed data for the Leaderboard and Resource Library.
+-- Seed data for member recognition points.
 -- Requires the base users and clubs from 02_seed.sql.
 
 insert into club_point_awards (id, club_id, user_id, awarded_by, points, reason, created_at) values
@@ -18,18 +18,4 @@ insert into club_point_awards (id, club_id, user_id, awarded_by, points, reason,
 ('d1000000-0000-0000-0000-000000000014','c0000000-0000-0000-0000-000000000005','a0000000-0000-0000-0000-000000000010','a0000000-0000-0000-0000-000000000008',25,'Coordinated the campus recycling weigh-in',now()-interval '5 days'),
 ('d1000000-0000-0000-0000-000000000015','c0000000-0000-0000-0000-000000000005','a0000000-0000-0000-0000-000000000011','a0000000-0000-0000-0000-000000000008',20,'Prepared the solar panel demonstration',now()-interval '11 days'),
 ('d1000000-0000-0000-0000-000000000016','c0000000-0000-0000-0000-000000000005','a0000000-0000-0000-0000-000000000016','a0000000-0000-0000-0000-000000000008',10,'Contributed a sustainability project idea',now()-interval '28 days')
-on conflict (id) do nothing;
-
-insert into resources (id, club_id, created_by, title, description, category, resource_type, url) values
-('d2000000-0000-0000-0000-000000000001',null,'a0000000-0000-0000-0000-000000000001','Student project planning guide','A practical starting point for planning, documenting and presenting a school project.','Study skills','article','https://www.edutopia.org/article/keeping-project-based-learning-project'),
-('d2000000-0000-0000-0000-000000000002',null,'a0000000-0000-0000-0000-000000000001','NASA STEM activities','Hands-on science, engineering and space activities for students.','Science','website','https://www.nasa.gov/learning-resources/'),
-('d2000000-0000-0000-0000-000000000003','c0000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000004','Arduino getting started','Official guides for building your first electronics project with Arduino.','Robotics','document','https://docs.arduino.cc/learn/'),
-('d2000000-0000-0000-0000-000000000004','c0000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000002','BBC micro:bit robotics projects','Classroom-friendly coding and robotics projects using micro:bit.','Robotics','website','https://microbit.org/projects/'),
-('d2000000-0000-0000-0000-000000000005','c0000000-0000-0000-0000-000000000002','a0000000-0000-0000-0000-000000000005','Python tutorial','The official Python tutorial, covering core language concepts and examples.','Programming','document','https://docs.python.org/3/tutorial/'),
-('d2000000-0000-0000-0000-000000000006','c0000000-0000-0000-0000-000000000002','a0000000-0000-0000-0000-000000000005','Git and GitHub for beginners','A short video introduction to version control and collaborative coding.','Programming','video','https://www.youtube.com/watch?v=RGOj5yH7evk'),
-('d2000000-0000-0000-0000-000000000007','c0000000-0000-0000-0000-000000000003','a0000000-0000-0000-0000-000000000006','Photography basics','A guide to exposure, focus and composition for new photographers.','Photography','article','https://www.nikonusa.com/learn-and-explore/c/tips-and-techniques'),
-('d2000000-0000-0000-0000-000000000008','c0000000-0000-0000-0000-000000000004','a0000000-0000-0000-0000-000000000007','Public speaking: presentation skills','A video guide to preparing and delivering a clear presentation.','Public speaking','video','https://www.youtube.com/watch?v=Unzc731iCUY'),
-('d2000000-0000-0000-0000-000000000009','c0000000-0000-0000-0000-000000000005','a0000000-0000-0000-0000-000000000008','Renewable energy learning resources','Explore how solar, wind and other renewable energy technologies work.','Renewable energy','website','https://www.energy.gov/eere/education/energy-literacy'),
-('d2000000-0000-0000-0000-000000000010','c0000000-0000-0000-0000-000000000005','a0000000-0000-0000-0000-000000000003','Climate change classroom resources','Educational explainers and activities about climate science.','Environment','article','https://climate.nasa.gov/resources/education/'),
-('d2000000-0000-0000-0000-000000000011','c0000000-0000-0000-0000-000000000004','a0000000-0000-0000-0000-000000000003','Debate preparation worksheet','A worksheet for structuring claims, evidence and rebuttals.','Debate','document','https://www.speechanddebate.org/what-is-debate/')
 on conflict (id) do nothing;

@@ -8,12 +8,17 @@ const TABS = [['upcoming', 'Upcoming'], ['mine', 'My registrations'], ['past', '
 export default function Events() {
   const { user, clubs, manageable, canManage, toast } = useApp();
   const [events, setEvents] = useState(null);
-  const [tab, setTab] = useState('upcoming');
+  const [proposals, setProposals] = useState(null);
+  const [proposalError, setProposalError] = useState('');
+  const [tab, setTab] = useState(() => location.hash === '#event-proposals' && user.role === 'admin' ? 'proposals' : 'upcoming');
   const [clubId, setClubId] = useState('');
   const [form, setForm] = useState(null);
 
   const load = useCallback(() => {
     api.get('/events' + (clubId ? `?club_id=${clubId}` : '')).then(setEvents).catch((e) => toast(e.message, 'error'));
+    setProposals(null);
+    setProposalError('');
+    api.get('/event-proposals').then(setProposals).catch((e) => setProposalError(e.message));
   }, [clubId, toast]);
   useEffect(() => { load(); }, [load]);
 
@@ -40,7 +45,7 @@ export default function Events() {
 
       <div className="toolbar">
         <div className="tabs" role="tablist">
-          {TABS.map(([id, label]) => (
+          {[...TABS, [user.role === 'admin' ? 'proposals' : 'my-proposals', user.role === 'admin' ? 'Event proposals' : 'My proposals']].map(([id, label]) => (
             <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
           ))}
         </div>
@@ -52,9 +57,40 @@ export default function Events() {
         {manageable.length > 0 && (
           <button className="btn primary" onClick={() => setForm({ club_id: manageable[0].id })}><Plus size={16} /> New event</button>
         )}
+        {user.role !== 'admin' && clubs.length > 0 && (
+          <button className="btn primary" onClick={() => setForm({ proposal: true, club_id: clubs[0].id })}><Plus size={16} /> Propose event</button>
+        )}
       </div>
 
-      {events === null ? <Loading /> : shown.length === 0 ? (
+      {tab === 'proposals' || tab === 'my-proposals' ? proposalError ? <p className="page-error" role="alert">{proposalError}</p> : proposals === null ? <Loading /> : proposals.length === 0 ? (
+        <Empty icon={CalendarDays} title={tab === 'proposals' ? 'No pending event proposals' : 'No event proposals yet'}
+          text={tab === 'proposals' ? 'New member proposals will appear here for review.' : 'Propose an event and track its review here.'} />
+      ) : (
+        <div className="proposal-list">
+          {proposals.map((proposal) => (
+            <article key={proposal.id} className="proposal-card">
+              <div className="proposal-card-heading">
+                <ClubChip club={proposal.clubs} />
+                <span className={`pill ${proposal.status === 'approved' ? 'ok' : proposal.status === 'rejected' ? 'red' : ''}`}>{proposal.status}</span>
+              </div>
+              <h3>{proposal.title}</h3>
+              {proposal.description && <p className="desc">{proposal.description}</p>}
+              <div className="meta">
+                <span><Clock size={14} /> {fmt.date(proposal.starts_at)}, {fmt.time(proposal.starts_at)} to {fmt.time(proposal.ends_at)}</span>
+                {proposal.location && <span><MapPin size={14} /> {proposal.location}</span>}
+                {user.role === 'admin' && <span>Proposed by {proposal.author?.full_name || 'Member'}</span>}
+              </div>
+              {proposal.review_note && <p className="proposal-note">Review note: {proposal.review_note}</p>}
+              {user.role === 'admin' && (
+                <div className="proposal-actions">
+                  <button className="btn sm primary" onClick={() => act(() => api.post(`/event-proposals/${proposal.id}/review`, { status: 'approved' }), 'Proposal approved and event published')}>Approve</button>
+                  <button className="btn sm" onClick={() => act(() => api.post(`/event-proposals/${proposal.id}/review`, { status: 'rejected' }), 'Proposal declined')}>Decline</button>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      ) : events === null ? <Loading /> : shown.length === 0 ? (
         <Empty icon={CalendarDays} title="No events here"
           text={tab === 'mine' ? 'Register for an event and it will show up here.' : 'Try another tab or club.'} />
       ) : (
@@ -107,8 +143,9 @@ export default function Events() {
 }
 
 function EventForm({ initial, onClose, onSaved }) {
-  const { manageable, toast } = useApp();
+  const { clubs, manageable, toast } = useApp();
   const editing = !!initial.id;
+  const isProposal = !!initial.proposal;
   const [f, setF] = useState({
     club_id: initial.club_id, title: initial.title || '', description: initial.description || '',
     location: initial.location || '', starts_at: initial.starts_at || '', ends_at: initial.ends_at || '',
@@ -121,25 +158,27 @@ function EventForm({ initial, onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     const payload = {
+      club_id: f.club_id,
       title: f.title, description: f.description || null, location: f.location || null,
       starts_at: new Date(f.starts_at).toISOString(), ends_at: new Date(f.ends_at).toISOString(),
       capacity: f.capacity ? Number(f.capacity) : null,
     };
     try {
       if (editing) await api.put(`/events/${initial.id}`, payload);
-      else await api.post('/events', { ...payload, club_id: f.club_id });
-      toast(editing ? 'Event updated' : 'Event created. Club members were notified.');
+      else if (isProposal) await api.post('/event-proposals', payload);
+      else await api.post('/events', payload);
+      toast(editing ? 'Event updated' : isProposal ? 'Proposal submitted for administrator review.' : 'Event created. Club members were notified.');
       onSaved();
     } catch (err) { toast(err.message, 'error'); setBusy(false); }
   };
 
   return (
-    <Modal title={editing ? 'Edit event' : 'New event'} onClose={onClose}>
+    <Modal title={editing ? 'Edit event' : isProposal ? 'Propose an event' : 'New event'} onClose={onClose}>
       <form onSubmit={save}>
         {!editing && (
           <div className="field"><label>Club</label>
             <select value={f.club_id} onChange={set('club_id')} required>
-              {manageable.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {(isProposal ? clubs : manageable).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
         )}
@@ -155,7 +194,7 @@ function EventForm({ initial, onClose, onSaved }) {
         </div>
         <div className="foot">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" disabled={busy}>{editing ? 'Save changes' : 'Create event'}</button>
+          <button className="btn primary" disabled={busy}>{editing ? 'Save changes' : isProposal ? 'Submit proposal' : 'Create event'}</button>
         </div>
       </form>
     </Modal>

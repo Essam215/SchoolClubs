@@ -6,8 +6,4 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Content Update="appsettings.json" CopyToPublishDirectory="Never" />
-  </ItemGroup>
-
 </Project>

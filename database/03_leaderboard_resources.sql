@@ -1,4 +1,4 @@
--- Non-destructive migration for an existing School Clubs Hub database.
+-- Non-destructive migration for recognition points and the resource library.
 -- Safe to run after 01_schema.sql too; existing feature tables are retained.
 
 create table if not exists club_point_awards (
@@ -12,15 +12,19 @@ create table if not exists club_point_awards (
 );
 
 create table if not exists resources (
-  id            uuid primary key default gen_random_uuid(),
-  club_id       uuid references clubs(id) on delete cascade,
-  created_by    uuid references users(id) on delete set null,
-  title         text not null,
-  description   text,
-  category      text not null default 'other',
-  resource_type text not null check (resource_type in ('article','video','document','website')),
-  url           text not null,
-  created_at    timestamptz not null default now()
+  id               uuid primary key default gen_random_uuid(),
+  club_id          uuid references clubs(id) on delete cascade,
+  created_by       uuid references users(id) on delete set null,
+  title            text not null,
+  description      text,
+  category         text not null default 'other',
+  quantity         int not null default 0 check (quantity >= 0),
+  unit             text not null default 'items',
+  storage_location text,
+  resource_type    text not null default 'physical_item'
+                   check (resource_type in ('article','video','document','website','physical_item')),
+  url              text,
+  created_at       timestamptz not null default now()
 );
 
 create index if not exists club_point_awards_club_user_created_idx

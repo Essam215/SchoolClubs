@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Award, Bell, BookOpen, CalendarDays, ListTodo, Lightbulb, LogOut, Moon, Sun, Rocket, UserCheck, UserPlus } from 'lucide-react';
+import { Bell, BookOpen, CalendarDays, ListTodo, Lightbulb, LogOut, Moon, Sun, Rocket, Sparkles, UserCheck, UserPlus } from 'lucide-react';
 import { api, setUserId } from './api';
 import { Avatar, Ctx, Loading, roleLabel } from './ui';
 import Login from './pages/Login';
@@ -7,7 +7,7 @@ import Events from './pages/Events';
 import Tasks from './pages/Tasks';
 import Notifications from './pages/Notifications';
 import Suggestions from './pages/Suggestions';
-import Leaderboard from './pages/Leaderboard';
+import Gamification from './pages/Gamification';
 import ResourceLibrary from './pages/ResourceLibrary';
 import Admissions from './pages/Admissions';
 import AttendanceTracking from './pages/AttendanceTracking';
@@ -17,12 +17,12 @@ const NAV = [
   { id: 'tasks', label: 'Tasks', icon: ListTodo },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'suggestions', label: 'Suggestion box', icon: Lightbulb },
-  { id: 'leaderboard', label: 'Leaderboard', icon: Award },
+  { id: 'gamification', label: 'My progress', icon: Sparkles },
   { id: 'resources', label: 'Resource library', icon: BookOpen },
   { id: 'admissions', label: 'Admissions', icon: UserPlus },
   { id: 'attendance', label: 'Attendance Tracking', icon: UserCheck },
 ];
-const PAGES = { events: Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions, leaderboard: Leaderboard, resources: ResourceLibrary, admissions: Admissions, attendance: AttendanceTracking };
+const PAGES = { events: Events, 'event-proposals': Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions, gamification: Gamification, resources: ResourceLibrary, admissions: Admissions, attendance: AttendanceTracking };
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -98,7 +98,7 @@ export default function App() {
           <div className="nav-label">Main menu</div>
           <nav className="nav">
             {NAV.map(({ id, label, icon: Icon }) => (
-              <button key={id} className={view === id ? 'on' : ''} onClick={() => go(id)}>
+              <button key={id} className={view === id || (id === 'events' && view === 'event-proposals') ? 'on' : ''} onClick={() => go(id)}>
                 <Icon size={18} /> <span className="t">{label}</span>
                 {id === 'notifications' && unread > 0 && <span className="badge">{unread}</span>}
               </button>
