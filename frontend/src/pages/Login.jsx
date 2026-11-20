@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, CalendarDays, Check, Mail, Rocket, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, Check, LockKeyhole, Mail, Rocket, Sparkles, Users } from 'lucide-react';
 import { api } from '../api';
 import { Avatar, Loading, roleLabel } from '../ui';
 
 export default function Login({ onSignIn }) {
   const [users, setUsers] = useState(null);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -13,9 +14,9 @@ export default function Login({ onSignIn }) {
     api.get('/users').then(setUsers).catch((e) => { setUsers([]); setError(e.message); });
   }, []);
 
-  const login = async (address) => {
+  const login = async (address, demoPassword = password) => {
     setBusy(true); setError('');
-    try { onSignIn(await api.post('/auth/login', { email: address })); }
+    try { onSignIn(await api.post('/auth/login', { email: address, password: demoPassword })); }
     catch (e) { setError(e.message); }
     finally { setBusy(false); }
   };
@@ -50,7 +51,7 @@ export default function Login({ onSignIn }) {
         <div className="form-heading">
           <span className="form-kicker">WELCOME TO CLUBS HUB</span>
           <h2>Let’s get you in.</h2>
-          <p>Sign in with your school email, or choose your account below.</p>
+          <p>Sign in with your school email and password.</p>
         </div>
         <form onSubmit={(e) => { e.preventDefault(); login(email); }}>
           <div className="field auth-field">
@@ -58,6 +59,13 @@ export default function Login({ onSignIn }) {
             <span className="auth-input-wrap">
               <Mail size={17} aria-hidden="true" />
               <input id="email" type="email" required placeholder="name@elsewedy-schools.edu.eg" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </span>
+          </div>
+          <div className="field auth-field">
+            <label htmlFor="password">Password</label>
+            <span className="auth-input-wrap">
+              <LockKeyhole size={17} aria-hidden="true" />
+              <input id="password" type="password" required minLength={6} placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </span>
           </div>
           {error && <p className="auth-error" role="alert">{error}</p>}
@@ -73,7 +81,7 @@ export default function Login({ onSignIn }) {
         {users === null ? <Loading /> : (
           <div className="accounts">
             {users.map((u) => (
-              <button key={u.id} className="account" disabled={busy} onClick={() => login(u.email)}>
+              <button key={u.id} className="account" disabled={busy} onClick={() => login(u.email, 'School123')}>
                 <Avatar name={u.full_name} color={u.avatar_color} size={34} />
                 <span className="account-copy"><b>{u.full_name}</b><small>{roleLabel[u.role]}{u.grade ? ` · ${u.grade}` : ''}</small></span>
                 <ArrowRight className="account-arrow" size={15} />
@@ -81,7 +89,7 @@ export default function Login({ onSignIn }) {
             ))}
           </div>
         )}
-        <p className="auth-note">Demo access · Select a school account to continue</p>
+        <p className="auth-note">Demo password: <strong>School123</strong></p>
       </section>
     </div>
   );

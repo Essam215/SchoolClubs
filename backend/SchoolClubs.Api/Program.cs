@@ -49,6 +49,10 @@ app.MapGet("/api/users", async (Db db) =>
 app.MapPost("/api/auth/login", async (LoginIn i, Db db) =>
 {
     var email = Need(i.Email, "Email").ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(i.Password))
+        throw new ApiException(400, "Password is required.");
+    if (i.Password != "School123")
+        throw new ApiException(401, "That email and password do not match.");
     var user = await db.One($"users?email=eq.{Uri.EscapeDataString(email)}&select=*");
     return user is null
         ? Results.NotFound(new { error = "No account uses that email." })
@@ -765,7 +769,7 @@ app.MapPatch("/api/admissions/{id:guid}/review", async (HttpContext c, Db db, Gu
 
 app.Run();
 
-record LoginIn(string? Email);
+record LoginIn(string? Email, string? Password);
 record EventIn(Guid ClubId, string? Title, string? Description, string? Location, DateTimeOffset StartsAt, DateTimeOffset EndsAt, int? Capacity);
 record EventProposalReviewIn(string Status, string? ReviewNote);
 record TaskIn(Guid ClubId, Guid? EventId, string? Title, string? Description, string? Priority, DateOnly? DueDate, Guid? AssignedTo);
