@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, BookOpen, CalendarDays, ListTodo, Lightbulb, LogOut, Moon, Sun, Rocket, Sparkles, UserCheck, UserPlus } from 'lucide-react';
+import { Bell, Bot, BookOpen, CalendarDays, ListTodo, Lightbulb, LogOut, MessageSquare, Moon, Send, Sparkles, Sun, Rocket, UserCheck, UserPlus, X } from 'lucide-react';
 import { api, setUserId } from './api';
 import { Avatar, Ctx, Loading, roleLabel } from './ui';
 import Login from './pages/Login';
@@ -36,6 +36,11 @@ export default function App() {
   const [unread, setUnread] = useState(0);
   const [theme, setTheme] = useState(document.documentElement.dataset.theme);
   const [toastMsg, setToastMsg] = useState(null);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatMessages, setChatMessages] = useState([
+    { id: 1, role: 'assistant', text: 'Hi! I’m your School Clubs assistant. Ask me about events, tasks, clubs or admissions.' },
+  ]);
 
   const toast = useCallback((text, kind = 'ok') => {
     setToastMsg({ text, kind });
@@ -69,6 +74,18 @@ export default function App() {
     setTheme(next);
   };
 
+  const sendChat = (event) => {
+    event.preventDefault();
+    const text = chatDraft.trim();
+    if (!text) return;
+    setChatMessages((messages) => [
+      ...messages,
+      { id: `${Date.now()}-user`, role: 'user', text },
+      { id: `${Date.now()}-assistant`, role: 'assistant', text: 'I’m ready to help. This demo assistant is connected to the School Clubs interface.' },
+    ]);
+    setChatDraft('');
+  };
+
   // Permission helpers mirror the API rules; the API still enforces them.
   const ctx = useMemo(() => {
     const canManage = (clubId) => {
@@ -92,7 +109,7 @@ export default function App() {
 
   return (
     <Ctx.Provider value={ctx}>
-      <div className="shell">
+      <div className={`shell ${chatOpen ? 'assistant-open' : ''}`}>
         <aside className="side">
           <div className="brand">
             <span className="logo"><Rocket size={20} /></span>
@@ -130,6 +147,32 @@ export default function App() {
           {clubs ? <Page onNavigate={go} /> : <Loading />}
         </main>
       </div>
+      <aside className={`chatbot-panel ${chatOpen ? 'open' : 'closed'}`} aria-label="School Clubs assistant" aria-hidden={!chatOpen}>
+        <div className="chatbot-panel-inner">
+          <header className="chatbot-header">
+            <div className="chatbot-title">
+              <span className="chatbot-avatar"><Bot size={18} /></span>
+              <div><b>Club Assistant</b><small>Online</small></div>
+            </div>
+            <button className="icon-btn" onClick={() => setChatOpen(false)} aria-label="Close assistant"><X size={18} /></button>
+          </header>
+          <div className="chatbot-messages">
+            {chatMessages.map((message) => (
+              <div key={message.id} className={`chatbot-message ${message.role}`}>
+                {message.role === 'assistant' && <span className="chatbot-avatar small"><Bot size={14} /></span>}
+                <div>{message.text}</div>
+              </div>
+            ))}
+          </div>
+          <form className="chatbot-composer" onSubmit={sendChat}>
+            <input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder="Ask about clubs, events or tasks..." aria-label="Chat with Club Assistant" />
+            <button type="submit" disabled={!chatDraft.trim()} aria-label="Send message"><Send size={17} /></button>
+          </form>
+        </div>
+      </aside>
+      {!chatOpen && (
+        <button className="chatbot-launcher" onClick={() => setChatOpen(true)} aria-label="Open Club Assistant"><MessageSquare size={21} /><span>Assistant</span></button>
+      )}
       {toastMsg && <div className={`toast ${toastMsg.kind}`} role="status">{toastMsg.text}</div>}
     </Ctx.Provider>
   );

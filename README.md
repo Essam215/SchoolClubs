@@ -41,7 +41,8 @@ cd frontend
 npm install
 npm run dev
 ```
-Open http://localhost:5173. Pick any account on the sign-in screen
+Open http://localhost:5173. Sign in with any school email and the demo password `School123`,
+or pick any account on the sign-in screen
 (Omar Khaled = club leader, Layla Mostafa = student, Mariam Soliman = admin, Hossam Fathy = advisor).
 
 ## 4. Deploying the backend to MonsterASP.NET
@@ -100,4 +101,4 @@ before deploying features that depend on them.
 - The API uses the publishable key, so `01_schema.sql` adds open RLS policies. Anyone with that key could read or write
   the tables directly. Before launch, move the API to a secret/service key or a direct Npgsql connection (keep it in
   user-secrets or an environment variable) and remove the open policies.
-- Sign-in is email only (no password) to keep this demo small. Replace it with Supabase Auth or ASP.NET Identity.
+- Sign-in uses a demo password shared by seeded accounts. Replace it with Supabase Auth or ASP.NET Identity before production.
