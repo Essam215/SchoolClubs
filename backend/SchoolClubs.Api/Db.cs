@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -21,8 +22,10 @@ public class ApiException(int status, string message) : Exception(message)
 public class Db
 {
     readonly HttpClient _http;
+    readonly IHttpContextAccessor _context;
+    readonly Uri _authUrl;
 
-    public Db(HttpClient http, IOptions<SupabaseOptions> options)
+    public Db(HttpClient http, IOptions<SupabaseOptions> options, IHttpContextAccessor context)
     {
         var o = options.Value;
         if (string.IsNullOrWhiteSpace(o.Url) || string.IsNullOrWhiteSpace(o.Key) ||
@@ -36,17 +39,22 @@ public class Db
         }
 
         _http = http;
+        _context = context;
+        _authUrl = new Uri(o.Url.TrimEnd('/') + "/auth/v1/");
         _http.BaseAddress = new Uri(o.Url.TrimEnd('/') + "/rest/v1/");
         // Publishable keys are not JWTs, so they go in the apikey header only.
         _http.DefaultRequestHeaders.Add("apikey", o.Key);
     }
 
-    async Task<JsonNode?> Send(HttpMethod method, string path, object? body = null, string? prefer = null)
+    async Task<JsonNode?> Send(HttpMethod method, string path, object? body = null, string? prefer = null, string? tokenOverride = null)
     {
         using var req = new HttpRequestMessage(method, path);
         if (body != null)
             req.Content = new StringContent(JsonSerializer.Serialize(body, body.GetType()), Encoding.UTF8, "application/json");
         if (prefer != null) req.Headers.Add("Prefer", prefer);
+        var token = tokenOverride ?? BearerToken(_context.HttpContext);
+        if (!string.IsNullOrWhiteSpace(token))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var res = await _http.SendAsync(req);
         var text = await res.Content.ReadAsStringAsync();
@@ -61,13 +69,13 @@ public class Db
         return string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text);
     }
 
-    public Task<JsonNode?> Get(string path) => Send(HttpMethod.Get, path);
+    public Task<JsonNode?> Get(string path, string? token = null) => Send(HttpMethod.Get, path, tokenOverride: token);
 
-    public async Task<JsonArray> List(string path) => (await Get(path))?.AsArray() ?? new JsonArray();
+    public async Task<JsonArray> List(string path, string? token = null) => (await Get(path, token))?.AsArray() ?? new JsonArray();
 
-    public async Task<JsonObject?> One(string path)
+    public async Task<JsonObject?> One(string path, string? token = null)
     {
-        var rows = await List(path);
+        var rows = await List(path, token);
         return rows.Count == 0 ? null : rows[0]?.AsObject();
     }
 
@@ -87,13 +95,50 @@ public class Db
 
     public static Guid G(JsonNode? n) => Guid.Parse(n!.GetValue<string>());
 
-    /// <summary>The signed-in user, taken from the X-User-Id header.</summary>
+    // User identity is verified by Supabase Auth, never by an editable user-id header.
+    static string? BearerToken(HttpContext? context)
+    {
+        var authorization = context?.Request.Headers.Authorization.ToString();
+        return authorization?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
+            ? authorization[7..].Trim() : null;
+    }
+
+    async Task<JsonObject> AuthRequest(HttpMethod method, string route, object? body = null, string? bearer = null)
+    {
+        using var req = new HttpRequestMessage(method, new Uri(_authUrl, route));
+        if (body is not null)
+            req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        if (!string.IsNullOrWhiteSpace(bearer))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        using var response = await _http.SendAsync(req);
+        var content = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new ApiException(401, "Supabase authentication failed. Check your credentials or sign in again.");
+        return JsonNode.Parse(content)?.AsObject() ?? throw new ApiException(502, "Invalid authentication response.");
+    }
+
+    public Task<JsonObject> SignIn(string email, string password) =>
+        AuthRequest(HttpMethod.Post, "token?grant_type=password", new { email, password });
+
+    public Task<JsonObject> Refresh(string refreshToken) =>
+        AuthRequest(HttpMethod.Post, "token?grant_type=refresh_token", new { refresh_token = refreshToken });
+
+    public async Task<JsonObject> ProfileForToken(string token)
+    {
+        var authUser = await AuthRequest(HttpMethod.Get, "user", bearer: token);
+        var authId = authUser["id"]?.GetValue<string>();
+        if (!Guid.TryParse(authId, out var id))
+            throw new ApiException(401, "Invalid authentication identity.");
+        return await One($"users?auth_user_id=eq.{id}&select=id,full_name,email,role,grade,avatar_color", token)
+            ?? throw new ApiException(403, "Your school account has not been linked to Supabase Auth.");
+    }
+
     public async Task<JsonObject> Me(HttpContext c)
     {
-        if (!c.Request.Headers.TryGetValue("X-User-Id", out var h) || !Guid.TryParse(h.ToString(), out var id))
+        var token = BearerToken(c);
+        if (string.IsNullOrWhiteSpace(token))
             throw new ApiException(401, "Sign in to continue.");
-        return await One($"users?id=eq.{id}&select=id,full_name,role")
-               ?? throw new ApiException(401, "That account no longer exists. Sign in again.");
+        return await ProfileForToken(token);
     }
 
     /// <summary>Admins manage everything. Advisors manage their own clubs. Leaders manage clubs they lead.</summary>

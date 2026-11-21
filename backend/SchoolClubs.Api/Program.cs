@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using SchoolClubs.Api;
 
@@ -7,6 +7,7 @@ if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(builder.Con
     builder.WebHost.UseUrls("http://localhost:5080");
 
 builder.Services.Configure<SupabaseOptions>(builder.Configuration.GetSection("Supabase"));
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient<Db>();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
@@ -43,20 +44,42 @@ app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
 
 // ===== Users & clubs ====================================================
 
-app.MapGet("/api/users", async (Db db) =>
-    Results.Ok(await db.Get("users?select=id,full_name,email,role,grade,avatar_color&order=full_name")));
+app.MapGet("/api/users", async (HttpContext c, Db db) =>
+{
+    await db.Me(c);
+    return Results.Ok(await db.Get("users?select=id,full_name,email,role,grade,avatar_color&order=full_name"));
+});
 
 app.MapPost("/api/auth/login", async (LoginIn i, Db db) =>
 {
     var email = Need(i.Email, "Email").ToLowerInvariant();
-    if (string.IsNullOrWhiteSpace(i.Password))
-        throw new ApiException(400, "Password is required.");
-    if (i.Password != "School123")
-        throw new ApiException(401, "That email and password do not match.");
-    var user = await db.One($"users?email=eq.{Uri.EscapeDataString(email)}&select=*");
-    return user is null
-        ? Results.NotFound(new { error = "No account uses that email." })
-        : Results.Ok(user);
+    var password = Need(i.Password, "Password");
+    var session = await db.SignIn(email, password);
+    var token = session["access_token"]?.GetValue<string>()
+        ?? throw new ApiException(502, "Missing access token from Supabase.");
+    var user = await db.ProfileForToken(token);
+    return Results.Ok(new
+    {
+        user,
+        access_token = token,
+        refresh_token = session["refresh_token"]?.GetValue<string>(),
+        expires_in = session["expires_in"]?.GetValue<int>()
+    });
+});
+
+app.MapPost("/api/auth/refresh", async (RefreshIn i, Db db) =>
+{
+    var session = await db.Refresh(Need(i.RefreshToken, "Refresh token"));
+    var token = session["access_token"]?.GetValue<string>()
+        ?? throw new ApiException(502, "Missing access token from Supabase.");
+    var user = await db.ProfileForToken(token);
+    return Results.Ok(new
+    {
+        user,
+        access_token = token,
+        refresh_token = session["refresh_token"]?.GetValue<string>(),
+        expires_in = session["expires_in"]?.GetValue<int>()
+    });
 });
 
 app.MapGet("/api/clubs", async (HttpContext c, Db db) =>
@@ -911,6 +934,7 @@ app.MapPatch("/api/admissions/{id:guid}/review", async (HttpContext c, Db db, Gu
 app.Run();
 
 record LoginIn(string? Email, string? Password);
+record RefreshIn(string? RefreshToken);
 record EventIn(Guid ClubId, string? Title, string? Description, string? Location, DateTimeOffset StartsAt, DateTimeOffset EndsAt, int? Capacity);
 record EventProposalReviewIn(string Status, string? ReviewNote);
 record TaskIn(Guid ClubId, Guid? EventId, string? Title, string? Description, string? Priority, DateOnly? DueDate, Guid? AssignedTo);

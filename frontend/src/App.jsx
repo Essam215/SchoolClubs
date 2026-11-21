@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bell, Bot, BookOpen, CalendarDays, ListTodo, Lightbulb, LogOut, MessageSquare, Moon, Send, Sparkles, Sun, Rocket, UserCheck, UserPlus, X } from 'lucide-react';
-import { api, setUserId } from './api';
+import { api, setSession } from './api';
 import { Avatar, Ctx, Loading, roleLabel } from './ui';
 import Login from './pages/Login';
 import Events from './pages/Events';
@@ -29,7 +29,7 @@ const PAGES = { events: Events, meetings: Meetings, 'event-proposals': Events, t
 
 export default function App() {
   const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
+    try { return sessionStorage.getItem('access_token') ? JSON.parse(sessionStorage.getItem('user')) : null; } catch { return null; }
   });
   const [clubs, setClubs] = useState(null);
   const [view, setView] = useState(() => location.hash.slice(1) || 'events');
@@ -49,8 +49,8 @@ export default function App() {
 
   const go = (id) => { setView(id); location.hash = id; };
 
-  const signIn = (u) => { setUserId(u.id); localStorage.setItem('user', JSON.stringify(u)); setUser(u); };
-  const signOut = () => { setUserId(null); localStorage.removeItem('user'); setUser(null); setClubs(null); };
+  const signIn = (session) => { setSession(session); setUser(session.user); };
+  const signOut = () => { setSession(null); setUser(null); setClubs(null); };
 
   const refreshUnread = useCallback(() => {
     api.get('/notifications/unread-count').then((r) => setUnread(r.count)).catch(() => {});
@@ -60,7 +60,7 @@ export default function App() {
     if (!user) return;
     api.get('/clubs').then(setClubs).catch((e) => {
       // A stale saved account (e.g. after re-seeding) sends the user back to sign in.
-      if (/Sign in|no longer exists/.test(e.message)) signOut(); else toast(e.message, 'error');
+      if (/Sign in|sign in|Session expired|no longer exists/.test(e.message)) signOut(); else toast(e.message, 'error');
     });
     refreshUnread();
     const t = setInterval(refreshUnread, 20000);
