@@ -32,7 +32,7 @@ public class Db
             (supabaseUri.Scheme != Uri.UriSchemeHttps && supabaseUri.Scheme != Uri.UriSchemeHttp))
         {
             throw new ApiException(503,
-                "Supabase isn't configured. Copy appsettings.example.json to appsettings.json, set Supabase:Url and Supabase:Key to your project values, then restart the API.");
+                "Supabase isn't configured. Set Supabase:Url and Supabase:Key in appsettings.json or environment variables, then restart the API.");
         }
 
         _http = http;

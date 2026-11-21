@@ -1,0 +1,48 @@
+name: Deploy backend to MonsterASP.NET
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monsterasp-backend-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish API
+        run: dotnet publish backend/SchoolClubs.Api/SchoolClubs.Api.csproj -c Release -o publish
+
+      - name: Upload publish output over FTP
+        env:
+          FTP_BASE_URL: ${{ secrets.MONSTERASP_FTP_BASE_URL }}
+          FTP_USERNAME: ${{ secrets.MONSTERASP_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.MONSTERASP_FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FTP_BASE_URL:?Add the MONSTERASP_FTP_BASE_URL repository secret}"
+          : "${FTP_USERNAME:?Add the MONSTERASP_FTP_USERNAME repository secret}"
+          : "${FTP_PASSWORD:?Add the MONSTERASP_FTP_PASSWORD repository secret}"
+
+          base_url="${FTP_BASE_URL%/}"
+          while IFS= read -r -d '' file; do
+            relative_path="${file#publish/}"
+            curl --fail --silent --show-error \
+              --ftp-create-dirs \
+              --user "$FTP_USERNAME:$FTP_PASSWORD" \
+              --upload-file "$file" \
+              "$base_url/$relative_path"
+          done < <(find publish -type f -print0)

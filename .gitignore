@@ -2,4 +2,3 @@ node_modules
 dist
 bin
 obj
-backend/SchoolClubs.Api/appsettings.json

@@ -115,7 +115,7 @@ create table suggestion_votes (
   primary key (suggestion_id, user_id)
 );
 
--- Leaderboard ----------------------------------------------------------
+-- Member recognition points --------------------------------------------
 create table club_point_awards (
   id          uuid primary key default gen_random_uuid(),
   club_id     uuid not null references clubs(id) on delete cascade,
@@ -128,15 +128,19 @@ create table club_point_awards (
 
 -- Resource library -----------------------------------------------------
 create table resources (
-  id           uuid primary key default gen_random_uuid(),
-  club_id      uuid references clubs(id) on delete cascade,
-  created_by   uuid references users(id) on delete set null,
-  title        text not null,
-  description  text,
-  category     text not null default 'other',
-  resource_type text not null check (resource_type in ('article','video','document','website')),
-  url          text not null,
-  created_at   timestamptz not null default now()
+  id               uuid primary key default gen_random_uuid(),
+  club_id          uuid references clubs(id) on delete cascade,
+  created_by       uuid references users(id) on delete set null,
+  title            text not null,
+  description      text,
+  category         text not null default 'other',
+  quantity         int not null default 0 check (quantity >= 0),
+  unit             text not null default 'items',
+  storage_location text,
+  resource_type    text not null default 'physical_item'
+                   check (resource_type in ('article','video','document','website','physical_item')),
+  url              text,
+  created_at       timestamptz not null default now()
 );
 
 -- Indexes -------------------------------------------------------------

@@ -1,26 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Award, Bell, BookOpen, CalendarDays, ListTodo, Lightbulb, LogOut, Moon, Sun, Rocket, UserCheck, UserPlus } from 'lucide-react';
+import { Bell, Bot, BookOpen, CalendarDays, ListTodo, Lightbulb, LogOut, MessageSquare, Moon, Send, Sparkles, Sun, Rocket, UserCheck, UserPlus, X } from 'lucide-react';
 import { api, setUserId } from './api';
 import { Avatar, Ctx, Loading, roleLabel } from './ui';
 import Login from './pages/Login';
 import Events from './pages/Events';
+import Meetings from './pages/Meetings';
 import Tasks from './pages/Tasks';
 import Notifications from './pages/Notifications';
 import Suggestions from './pages/Suggestions';
-import Leaderboard from './pages/Leaderboard';
+import Gamification from './pages/Gamification';
 import ResourceLibrary from './pages/ResourceLibrary';
 import Admissions from './pages/Admissions';
 import AttendanceTracking from './pages/AttendanceTracking';
+import MeetingAttendance from './pages/MeetingAttendance';
 
 const NAV = [
   { id: 'events', label: 'Events', icon: CalendarDays },
   { id: 'tasks', label: 'Tasks', icon: ListTodo },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'suggestions', label: 'Suggestion box', icon: Lightbulb },
-  { id: 'leaderboard', label: 'Leaderboard', icon: Award },
+  { id: 'gamification', label: 'My progress', icon: Sparkles },
   { id: 'resources', label: 'Resource library', icon: BookOpen },
+  { id: 'admissions', label: 'Admissions', icon: UserPlus },
+  { id: 'attendance', label: 'Attendance Tracking', icon: UserCheck },
+  { id: 'meetings', label: 'Meetings', icon: CalendarDays },
 ];
-const PAGES = { events: Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions, leaderboard: Leaderboard, resources: ResourceLibrary, admissions: Admissions, attendance: AttendanceTracking };
+const PAGES = { events: Events, meetings: Meetings, 'event-proposals': Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions, gamification: Gamification, resources: ResourceLibrary, admissions: Admissions, attendance: AttendanceTracking };
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -31,6 +36,11 @@ export default function App() {
   const [unread, setUnread] = useState(0);
   const [theme, setTheme] = useState(document.documentElement.dataset.theme);
   const [toastMsg, setToastMsg] = useState(null);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatMessages, setChatMessages] = useState([
+    { id: 1, role: 'assistant', text: 'Hi! I’m your School Clubs assistant. Ask me about events, tasks, clubs or admissions.' },
+  ]);
 
   const toast = useCallback((text, kind = 'ok') => {
     setToastMsg({ text, kind });
@@ -64,6 +74,18 @@ export default function App() {
     setTheme(next);
   };
 
+  const sendChat = (event) => {
+    event.preventDefault();
+    const text = chatDraft.trim();
+    if (!text) return;
+    setChatMessages((messages) => [
+      ...messages,
+      { id: `${Date.now()}-user`, role: 'user', text },
+      { id: `${Date.now()}-assistant`, role: 'assistant', text: 'I’m ready to help. This demo assistant is connected to the School Clubs interface.' },
+    ]);
+    setChatDraft('');
+  };
+
   // Permission helpers mirror the API rules; the API still enforces them.
   const ctx = useMemo(() => {
     const canManage = (clubId) => {
@@ -87,7 +109,7 @@ export default function App() {
 
   return (
     <Ctx.Provider value={ctx}>
-      <div className="shell">
+      <div className={`shell ${chatOpen ? 'assistant-open' : ''}`}>
         <aside className="side">
           <div className="brand">
             <span className="logo"><Rocket size={20} /></span>
@@ -96,7 +118,7 @@ export default function App() {
           <div className="nav-label">Main menu</div>
           <nav className="nav">
             {NAV.map(({ id, label, icon: Icon }) => (
-              <button key={id} className={view === id ? 'on' : ''} onClick={() => go(id)}>
+              <button key={id} className={view === id || (id === 'events' && view === 'event-proposals') ? 'on' : ''} onClick={() => go(id)}>
                 <Icon size={18} /> <span className="t">{label}</span>
                 {id === 'notifications' && unread > 0 && <span className="badge">{unread}</span>}
               </button>
@@ -125,6 +147,32 @@ export default function App() {
           {clubs ? <Page onNavigate={go} /> : <Loading />}
         </main>
       </div>
+      <aside className={`chatbot-panel ${chatOpen ? 'open' : 'closed'}`} aria-label="School Clubs assistant" aria-hidden={!chatOpen}>
+        <div className="chatbot-panel-inner">
+          <header className="chatbot-header">
+            <div className="chatbot-title">
+              <span className="chatbot-avatar"><Bot size={18} /></span>
+              <div><b>Club Assistant</b><small>Online</small></div>
+            </div>
+            <button className="icon-btn" onClick={() => setChatOpen(false)} aria-label="Close assistant"><X size={18} /></button>
+          </header>
+          <div className="chatbot-messages">
+            {chatMessages.map((message) => (
+              <div key={message.id} className={`chatbot-message ${message.role}`}>
+                {message.role === 'assistant' && <span className="chatbot-avatar small"><Bot size={14} /></span>}
+                <div>{message.text}</div>
+              </div>
+            ))}
+          </div>
+          <form className="chatbot-composer" onSubmit={sendChat}>
+            <input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder="Ask about clubs, events or tasks..." aria-label="Chat with Club Assistant" />
+            <button type="submit" disabled={!chatDraft.trim()} aria-label="Send message"><Send size={17} /></button>
+          </form>
+        </div>
+      </aside>
+      {!chatOpen && (
+        <button className="chatbot-launcher" onClick={() => setChatOpen(true)} aria-label="Open Club Assistant"><MessageSquare size={21} /><span>Assistant</span></button>
+      )}
       {toastMsg && <div className={`toast ${toastMsg.kind}`} role="status">{toastMsg.text}</div>}
     </Ctx.Provider>
   );
