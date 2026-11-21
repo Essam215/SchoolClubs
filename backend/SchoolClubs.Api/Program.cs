@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using SchoolClubs.Api;
 
@@ -592,10 +592,14 @@ app.MapGet("/api/events/{id:guid}/attendance", async (HttpContext c, Db db, Guid
 app.MapPatch("/api/events/{id:guid}/attendance/{userId:guid}", async (HttpContext c, Db db, Guid id, Guid userId, AttendanceStatusIn i) =>
 {
     var me = await db.Me(c);
-    var ev = await db.One($"events?id=eq.{id}&select=club_id,title") ?? throw new ApiException(404, "Event not found.");
+
+    var ev = await db.One($"events?id=eq.{id}&select=club_id,title")
+        ?? throw new ApiException(404, "Event not found.");
+
     await db.RequireManage(me, G(ev["club_id"]));
 
     var st = Need(i.Status, "Status").ToLowerInvariant();
+
     if (st is not ("registered" or "attended" or "late"))
         throw new ApiException(400, "Unknown attendance status.");
 
@@ -605,8 +609,14 @@ app.MapPatch("/api/events/{id:guid}/attendance/{userId:guid}", async (HttpContex
         ["attended_at"] = st == "registered" ? null : DateTimeOffset.UtcNow
     };
 
-    var updated = await db.Patch($"event_registrations?event_id=eq.{id}&user_id=eq.{userId}", patch);
-    if (updated.Count == 0) throw new ApiException(404, "Registration not found.");
+    var updated = await db.Patch(
+        $"event_registrations?event_id=eq.{id}&user_id=eq.{userId}",
+        patch
+    );
+
+    if (updated.Count == 0)
+        throw new ApiException(404, "Registration not found.");
+
     return Results.Ok(updated[0]);
 });
 
@@ -628,6 +638,137 @@ app.MapPost("/api/events/{id:guid}/attendance/check-in", async (HttpContext c, D
     }, upsertOn: "event_id,user_id"))[0]!;
 
     return Results.Ok(upserted);
+});
+
+// ===== Meeting Attendance ===============================================
+// One meeting per club per date. Access limited to club managers.
+app.MapGet("/api/meetings/attendance", async (HttpContext c, Db db, Guid club_id, DateOnly meeting_date) =>
+{
+    var me = await db.Me(c);
+    await db.RequireManage(me, club_id);
+    var club = await db.One($"clubs?id=eq.{club_id}&select=id")
+        ?? throw new ApiException(404, "Club not found.");
+
+    var scheduledMeeting = await db.One($"club_meetings?club_id=eq.{club_id}&meeting_date=eq.{meeting_date:yyyy-MM-dd}&status=eq.scheduled&select=id");
+    if (scheduledMeeting is null) throw new ApiException(404, "Club meeting not found for the selected date.");
+    var members = await db.List($"club_members?club_id=eq.{club_id}&select=user_id,role,user:users!user_id(id,full_name,email,avatar_color,grade)&order=user_id.asc");
+    var attendance = await db.List($"meeting_attendance?club_id=eq.{club_id}&meeting_date=eq.{meeting_date:yyyy-MM-dd}&select=user_id,status,attended_at,recorded_at");
+    var byUser = attendance.ToDictionary(a => S(a!["user_id"]), a => a!);
+    var result = new JsonArray();
+
+    foreach (var member in members)
+    {
+        var uid = S(member!["user_id"]);
+        byUser.TryGetValue(uid, out var row);
+        result.Add(new JsonObject
+        {
+            ["user_id"] = uid,
+            ["role"] = S(member["role"]),
+            ["user"] = member["user"]?.DeepClone(),
+            ["status"] = row is null ? "pending" : S(row["status"]),
+            ["attended_at"] = row?["attended_at"]?.DeepClone(),
+            ["recorded_at"] = row?["recorded_at"]?.DeepClone()
+        });
+    }
+    return Results.Ok(result);
+});
+
+app.MapPut("/api/meetings/attendance", async (HttpContext c, Db db, MeetingAttendanceIn i) =>
+{
+    var me = await db.Me(c);
+    await db.RequireManage(me, i.ClubId);
+    var scheduledMeeting = await db.One($"club_meetings?club_id=eq.{i.ClubId}&meeting_date=eq.{i.MeetingDate:yyyy-MM-dd}&status=eq.scheduled&select=id");
+    if (scheduledMeeting is null) throw new ApiException(404, "Club meeting not found for the selected date.");
+    var st = Need(i.Status, "Status").ToLowerInvariant();
+    if (st is not ("pending" or "present" or "late" or "absent"))
+        throw new ApiException(400, "Status must be pending, present, late, or absent.");
+
+    var member = await db.One($"club_members?club_id=eq.{i.ClubId}&user_id=eq.{i.UserId}&select=user_id");
+    if (member is null) throw new ApiException(400, "This user is not a member of the selected club.");
+
+    var rows = await db.Insert("meeting_attendance", new Dictionary<string, object?>
+    {
+        ["club_id"] = i.ClubId,
+        ["user_id"] = i.UserId,
+        ["meeting_date"] = i.MeetingDate,
+        ["status"] = st,
+        ["recorded_at"] = DateTimeOffset.UtcNow,
+        ["attended_at"] = st is "present" or "late" ? DateTimeOffset.UtcNow : null
+    }, upsertOn: "club_id,user_id,meeting_date");
+    return Results.Ok(rows[0]);
+});
+
+// ===== Club Meetings (creation + announcements) ===========================
+app.MapGet("/api/club-meetings", async (HttpContext c, Db db, Guid? club_id) =>
+{
+    var me = await db.Me(c);
+    var userId = G(me["id"]);
+    var role = S(me["role"]);
+    if (club_id is not null)
+    {
+        var hasAccess = role == "admin" || await db.CanManage(me, club_id.Value)
+            || await db.One($"club_members?club_id=eq.{club_id}&user_id=eq.{userId}&select=user_id") is not null;
+        if (!hasAccess) throw new ApiException(403, "You do not belong to this club.");
+        return Results.Ok(await db.Get($"club_meetings?club_id=eq.{club_id}&select=*,clubs(id,name,color)&order=starts_at.desc&limit=100"));
+    }
+    // Only show meetings in clubs the authenticated user belongs to or manages.
+    var membershipIds = (await db.List($"club_members?user_id=eq.{userId}&select=club_id"))
+        .Select(r => G(r!["club_id"]));
+    var advisingIds = (await db.List($"clubs?advisor_id=eq.{userId}&select=id"))
+        .Select(r => G(r!["id"]));
+    var ids = membershipIds.Concat(advisingIds).Distinct().ToList();
+    if (role == "admin") return Results.Ok(await db.Get("club_meetings?select=*,clubs(id,name,color)&order=starts_at.desc&limit=100"));
+    if (ids.Count == 0) return Results.Ok(new JsonArray());
+    return Results.Ok(await db.Get($"club_meetings?club_id=in.({string.Join(",", ids)})&select=*,clubs(id,name,color)&order=starts_at.desc&limit=100"));
+});
+
+app.MapPost("/api/club-meetings", async (HttpContext c, Db db, ClubMeetingIn i) =>
+{
+    var me = await db.Me(c);
+    await db.RequireManage(me, i.ClubId);
+    var title = Need(i.Title, "Meeting title");
+    if (title.Length > 160) throw new ApiException(400, "Title is too long.");
+    var mode = Need(i.Mode, "Meeting mode").ToLowerInvariant();
+    if (mode is not ("online" or "offline")) throw new ApiException(400, "Mode must be online or offline.");
+    if (i.EndsAt <= i.StartsAt) throw new ApiException(400, "End time must be after start time.");
+    var link = string.IsNullOrWhiteSpace(i.MeetingUrl) ? null : i.MeetingUrl.Trim();
+    var location = string.IsNullOrWhiteSpace(i.Location) ? null : i.Location.Trim();
+    if (mode == "online" && (link is null || !Uri.TryCreate(link, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps))
+        throw new ApiException(400, "Online meetings require a valid HTTPS link.");
+    if (mode == "offline" && (location is null || location.Length > 250))
+        throw new ApiException(400, "Offline meetings require a location (up to 250 characters).");
+    var club = await db.One($"clubs?id=eq.{i.ClubId}&select=id,name") ?? throw new ApiException(404, "Club not found.");
+    var already = await db.One($"club_meetings?club_id=eq.{i.ClubId}&meeting_date=eq.{i.MeetingDate:yyyy-MM-dd}&select=id");
+    if (already is not null) throw new ApiException(409, "A meeting already exists for this club on that date.");
+    var created = (await db.Insert("club_meetings", new Dictionary<string, object?>
+    {
+        ["club_id"] = i.ClubId, ["title"] = title, ["meeting_date"] = i.MeetingDate,
+        ["starts_at"] = i.StartsAt, ["ends_at"] = i.EndsAt, ["mode"] = mode,
+        ["meeting_url"] = mode == "online" ? link : null,
+        ["location"] = mode == "offline" ? location : null,
+        ["status"] = "scheduled", ["created_by"] = G(me["id"])
+    }))[0]!;
+    var receivers = (await db.ClubMembers(i.ClubId)).Where(id => id != G(me["id"]));
+    await db.Notify(receivers, "event", $"Club meeting: {title}",
+        $"{S(club["name"])} meeting on {i.MeetingDate:yyyy-MM-dd} at {i.StartsAt:HH:mm}. " +
+        (mode == "online" ? $"Join: {link}" : $"Location: {location}"), "meetings");
+    return Results.Ok(created);
+});
+
+app.MapPatch("/api/club-meetings/{id:guid}/cancel", async (HttpContext c, Db db, Guid id) =>
+{
+    var me = await db.Me(c);
+    var meeting = await db.One($"club_meetings?id=eq.{id}&select=club_id,title,meeting_date,status")
+        ?? throw new ApiException(404, "Meeting not found.");
+    var clubId = G(meeting["club_id"]);
+    await db.RequireManage(me, clubId);
+    if (S(meeting["status"]) == "cancelled") return Results.Ok(meeting);
+    var updated = (await db.Patch($"club_meetings?id=eq.{id}",
+        new Dictionary<string, object?> { ["status"] = "cancelled" }))[0]!;
+    var receivers = (await db.ClubMembers(clubId)).Where(uid => uid != G(me["id"]));
+    await db.Notify(receivers, "event", $"Meeting cancelled: {S(meeting["title"])}",
+        $"The club meeting on {S(meeting["meeting_date"])} has been cancelled.", "meetings");
+    return Results.Ok(updated);
 });
 
 // ===== Admissions ======================================================
@@ -750,7 +891,7 @@ app.MapPatch("/api/admissions/{id:guid}/review", async (HttpContext c, Db db, Gu
             ["role"] = "member"
         }, upsertOn: "club_id,user_id");
 
-        await db.Notify(new[] { applicantId }, "system", "🎉 Application Approved!",
+        await db.Notify(new[] { applicantId }, "system", "ðŸŽ‰ Application Approved!",
             $"Congratulations! Your application to join {clubName} was approved. Welcome to the club!", "admissions");
     }
     else if (newStatus == "rejected")
@@ -781,3 +922,9 @@ record AttendanceStatusIn(string Status);
 record CheckInIn(Guid UserId, string? Status);
 record ApplicationIn(Guid ClubId, string? RoleApplied, string Motivation, string? Skills);
 record ReviewIn(string Status, string? Feedback);
+
+record MeetingAttendanceIn(Guid ClubId, Guid UserId, DateOnly MeetingDate, string? Status);
+
+
+record ClubMeetingIn(Guid ClubId, string? Title, string? Mode, DateOnly MeetingDate, DateTimeOffset StartsAt, DateTimeOffset EndsAt, string? MeetingUrl, string? Location);
+

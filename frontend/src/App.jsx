@@ -4,6 +4,7 @@ import { api, setUserId } from './api';
 import { Avatar, Ctx, Loading, roleLabel } from './ui';
 import Login from './pages/Login';
 import Events from './pages/Events';
+import Meetings from './pages/Meetings';
 import Tasks from './pages/Tasks';
 import Notifications from './pages/Notifications';
 import Suggestions from './pages/Suggestions';
@@ -11,6 +12,7 @@ import Gamification from './pages/Gamification';
 import ResourceLibrary from './pages/ResourceLibrary';
 import Admissions from './pages/Admissions';
 import AttendanceTracking from './pages/AttendanceTracking';
+import MeetingAttendance from './pages/MeetingAttendance';
 
 const NAV = [
   { id: 'events', label: 'Events', icon: CalendarDays },
@@ -21,8 +23,9 @@ const NAV = [
   { id: 'resources', label: 'Resource library', icon: BookOpen },
   { id: 'admissions', label: 'Admissions', icon: UserPlus },
   { id: 'attendance', label: 'Attendance Tracking', icon: UserCheck },
+  { id: 'meetings', label: 'Meetings', icon: CalendarDays },
 ];
-const PAGES = { events: Events, 'event-proposals': Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions, gamification: Gamification, resources: ResourceLibrary, admissions: Admissions, attendance: AttendanceTracking };
+const PAGES = { events: Events, meetings: Meetings, 'event-proposals': Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions, gamification: Gamification, resources: ResourceLibrary, admissions: Admissions, attendance: AttendanceTracking };
 
 export default function App() {
   const [user, setUser] = useState(() => {
