@@ -4,5 +4,15 @@ import react from '@vitejs/plugin-react';
 // In dev, /api is proxied to the .NET API so no CORS setup is needed.
 export default defineConfig({
   plugins: [react()],
-  server: { port: 5173, proxy: { '/api': 'http://localhost:5080' } },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': 'http://localhost:5080',
+      '/chat-proxy': {
+        target: 'http://clubs.runasp.net',
+        changeOrigin: true,
+        rewrite: () => '/api/chat',
+      },
+    },
+  },
 });

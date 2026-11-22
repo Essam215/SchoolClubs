@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/chat-proxy",
+      "destination": "http://clubs.runasp.net/api/chat"
+    }
+  ]
+}

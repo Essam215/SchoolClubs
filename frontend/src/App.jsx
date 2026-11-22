@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, Bot, BookOpen, CalendarDays, ListTodo, Lightbulb, LogOut, MessageSquare, Moon, Send, Sparkles, Sun, Rocket, UserCheck, UserPlus, X } from 'lucide-react';
 import { api, setUserId } from './api';
 import { Avatar, Ctx, Loading, roleLabel } from './ui';
@@ -27,6 +27,79 @@ const NAV = [
 ];
 const PAGES = { events: Events, meetings: Meetings, 'event-proposals': Events, tasks: Tasks, notifications: Notifications, suggestions: Suggestions, gamification: Gamification, resources: ResourceLibrary, admissions: Admissions, attendance: AttendanceTracking };
 
+function formatChatText(text) {
+  const lines = text.split('\n');
+  const blocks = [];
+  let index = 0;
+
+  const parseCells = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+  const renderInline = (value) => value.split(/(\*\*[^*]+\*\*)/g).map((part, partIndex) => (
+    part.startsWith('**') && part.endsWith('**')
+      ? <strong key={partIndex}>{part.slice(2, -2)}</strong>
+      : part
+  ));
+
+  while (index < lines.length) {
+    if (!lines[index].trim()) {
+      index += 1;
+      continue;
+    }
+
+    if (
+      lines[index].includes('|')
+      && index + 1 < lines.length
+      && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[index + 1])
+      && lines[index + 1].includes('-')
+    ) {
+      const headers = parseCells(lines[index]);
+      index += 2;
+      const rows = [];
+      while (index < lines.length && lines[index].includes('|')) {
+        rows.push(parseCells(lines[index]));
+        index += 1;
+      }
+      blocks.push(
+        <div className="chatbot-table-wrap" key={`table-${blocks.length}`}>
+          <table className="chatbot-table">
+            <thead><tr>{headers.map((header, cellIndex) => <th key={cellIndex}>{renderInline(header)}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {headers.map((_, cellIndex) => {
+                    const value = row[cellIndex] || '';
+                    return (
+                      <td key={cellIndex}>
+                        {/^\#[\da-f]{6}$/i.test(value)
+                          ? <span className="chatbot-color"><i style={{ backgroundColor: value }} />{value}</span>
+                          : renderInline(value)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
+
+    const paragraph = [];
+    while (index < lines.length && lines[index].trim() && !(
+      index + 1 < lines.length
+      && lines[index].includes('|')
+      && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[index + 1])
+      && lines[index + 1].includes('-')
+    )) {
+      paragraph.push(lines[index].trim());
+      index += 1;
+    }
+    blocks.push(<p key={`paragraph-${blocks.length}`}>{renderInline(paragraph.join(' '))}</p>);
+  }
+
+  return blocks;
+}
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
@@ -38,6 +111,8 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState(null);
   const [chatOpen, setChatOpen] = useState(true);
   const [chatDraft, setChatDraft] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+  const chatMessagesRef = useRef(null);
   const [chatMessages, setChatMessages] = useState([
     { id: 1, role: 'assistant', text: 'Hi! I’m your School Clubs assistant. Ask me about events, tasks, clubs or admissions.' },
   ]);
@@ -74,16 +149,37 @@ export default function App() {
     setTheme(next);
   };
 
-  const sendChat = (event) => {
+  useEffect(() => {
+    chatMessagesRef.current?.scrollTo({ top: chatMessagesRef.current.scrollHeight, behavior: 'smooth' });
+  }, [chatMessages, chatSending]);
+
+  const sendChat = async (event) => {
     event.preventDefault();
     const text = chatDraft.trim();
-    if (!text) return;
-    setChatMessages((messages) => [
-      ...messages,
-      { id: `${Date.now()}-user`, role: 'user', text },
-      { id: `${Date.now()}-assistant`, role: 'assistant', text: 'I’m ready to help. This demo assistant is connected to the School Clubs interface.' },
-    ]);
+    if (!text || chatSending) return;
+    setChatMessages((messages) => [...messages, { id: `${Date.now()}-user`, role: 'user', text }]);
     setChatDraft('');
+    setChatSending(true);
+    try {
+      const response = await fetch('/chat-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      });
+      if (!response.ok) throw new Error(`The assistant request failed (${response.status}). Please try again.`);
+      const data = await response.json();
+      if (!data || typeof data.response !== 'string' || !data.response.trim()) {
+        throw new Error('The assistant returned an invalid response. Please try again.');
+      }
+      setChatMessages((messages) => [...messages, { id: `${Date.now()}-assistant`, role: 'assistant', text: data.response }]);
+    } catch (error) {
+      setChatMessages((messages) => [
+        ...messages,
+        { id: `${Date.now()}-assistant-error`, role: 'assistant', error: true, text: error.message || 'Unable to reach the assistant. Please try again.' },
+      ]);
+    } finally {
+      setChatSending(false);
+    }
   };
 
   // Permission helpers mirror the API rules; the API still enforces them.
@@ -156,17 +252,23 @@ export default function App() {
             </div>
             <button className="icon-btn" onClick={() => setChatOpen(false)} aria-label="Close assistant"><X size={18} /></button>
           </header>
-          <div className="chatbot-messages">
+          <div className="chatbot-messages" ref={chatMessagesRef} aria-live="polite">
             {chatMessages.map((message) => (
-              <div key={message.id} className={`chatbot-message ${message.role}`}>
+              <div key={message.id} className={`chatbot-message ${message.role}${message.error ? ' error' : ''}`}>
                 {message.role === 'assistant' && <span className="chatbot-avatar small"><Bot size={14} /></span>}
-                <div>{message.text}</div>
+                <div>{message.role === 'assistant' ? formatChatText(message.text) : message.text}</div>
               </div>
             ))}
+            {chatSending && (
+              <div className="chatbot-message assistant" role="status">
+                <span className="chatbot-avatar small"><Bot size={14} /></span>
+                <div className="chatbot-typing"><i /><i /><i /><span>Thinking</span></div>
+              </div>
+            )}
           </div>
           <form className="chatbot-composer" onSubmit={sendChat}>
-            <input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder="Ask about clubs, events or tasks..." aria-label="Chat with Club Assistant" />
-            <button type="submit" disabled={!chatDraft.trim()} aria-label="Send message"><Send size={17} /></button>
+            <input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder="Ask about clubs, events or tasks..." aria-label="Chat with Club Assistant" disabled={chatSending} />
+            <button type="submit" disabled={!chatDraft.trim() || chatSending} aria-label="Send message"><Send size={17} /></button>
           </form>
         </div>
       </aside>
