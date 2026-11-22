@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using SchoolClubs.Api;
 
@@ -15,6 +15,19 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
 
 var app = builder.Build();
 app.UseCors();
+// Extra guard: the demo data store is strictly for requests coming from this computer.
+app.Use(async (ctx, next) =>
+{
+    if (LocalMeetingsDemo.Enabled &&
+        (ctx.Connection.RemoteIpAddress is null ||
+         !System.Net.IPAddress.IsLoopback(ctx.Connection.RemoteIpAddress)))
+    {
+        ctx.Response.StatusCode = 403;
+        await ctx.Response.WriteAsJsonAsync(new { error = "Local meetings demo only. Disable MEETINGS_LOCAL_DEMO for public hosting." });
+        return;
+    }
+    await next();
+});
 
 // Turn ApiException into a clean JSON error: { "error": "..." }
 app.Use(async (ctx, next) =>
@@ -471,19 +484,27 @@ app.MapGet("/api/notifications", async (HttpContext c, Db db, bool? unread) =>
     var me = await db.Me(c);
     var q = $"notifications?user_id=eq.{S(me["id"])}&select=*&order=created_at.desc&limit=100";
     if (unread == true) q += "&is_read=eq.false";
-    return Results.Ok(await db.Get(q));
+    var stored = await db.List(q);
+    if (LocalMeetingsDemo.Enabled)
+    {
+        var local = LocalMeetingsDemo.Notifications(G(me["id"]), unread == true);
+        foreach (var note in local) stored.Add(note!.DeepClone());
+    }
+    return Results.Ok(stored);
 });
 
 app.MapGet("/api/notifications/unread-count", async (HttpContext c, Db db) =>
 {
     var me = await db.Me(c);
     var rows = await db.List($"notifications?user_id=eq.{S(me["id"])}&is_read=eq.false&select=id");
-    return Results.Ok(new { count = rows.Count });
+    var extraCount = LocalMeetingsDemo.Enabled ? LocalMeetingsDemo.Notifications(G(me["id"]), true).Count : 0;
+    return Results.Ok(new { count = rows.Count + extraCount });
 });
 
 app.MapPost("/api/notifications/read-all", async (HttpContext c, Db db) =>
 {
     var me = await db.Me(c);
+    if (LocalMeetingsDemo.Enabled) LocalMeetingsDemo.UpdateNotifications(G(me["id"]));
     await db.Patch($"notifications?user_id=eq.{S(me["id"])}&is_read=eq.false", new Dictionary<string, object?> { ["is_read"] = true });
     return Results.NoContent();
 });
@@ -491,6 +512,7 @@ app.MapPost("/api/notifications/read-all", async (HttpContext c, Db db) =>
 app.MapPost("/api/notifications/{id:guid}/read", async (HttpContext c, Db db, Guid id) =>
 {
     var me = await db.Me(c);
+    if (LocalMeetingsDemo.Enabled && LocalMeetingsDemo.UpdateNotifications(G(me["id"]), id)) return Results.NoContent();
     await db.Patch($"notifications?id=eq.{id}&user_id=eq.{S(me["id"])}", new Dictionary<string, object?> { ["is_read"] = true });
     return Results.NoContent();
 });
@@ -498,6 +520,7 @@ app.MapPost("/api/notifications/{id:guid}/read", async (HttpContext c, Db db, Gu
 app.MapDelete("/api/notifications/{id:guid}", async (HttpContext c, Db db, Guid id) =>
 {
     var me = await db.Me(c);
+    if (LocalMeetingsDemo.Enabled && LocalMeetingsDemo.UpdateNotifications(G(me["id"]), id, delete: true)) return Results.NoContent();
     await db.Delete($"notifications?id=eq.{id}&user_id=eq.{S(me["id"])}");
     return Results.NoContent();
 });
@@ -649,10 +672,14 @@ app.MapGet("/api/meetings/attendance", async (HttpContext c, Db db, Guid club_id
     var club = await db.One($"clubs?id=eq.{club_id}&select=id")
         ?? throw new ApiException(404, "Club not found.");
 
-    var scheduledMeeting = await db.One($"club_meetings?club_id=eq.{club_id}&meeting_date=eq.{meeting_date:yyyy-MM-dd}&status=eq.scheduled&select=id");
+    var scheduledMeeting = LocalMeetingsDemo.Enabled
+        ? LocalMeetingsDemo.Meeting(club_id, meeting_date, onlyScheduled: true)
+        : await db.One($"club_meetings?club_id=eq.{club_id}&meeting_date=eq.{meeting_date:yyyy-MM-dd}&status=eq.scheduled&select=id");
     if (scheduledMeeting is null) throw new ApiException(404, "Club meeting not found for the selected date.");
     var members = await db.List($"club_members?club_id=eq.{club_id}&select=user_id,role,user:users!user_id(id,full_name,email,avatar_color,grade)&order=user_id.asc");
-    var attendance = await db.List($"meeting_attendance?club_id=eq.{club_id}&meeting_date=eq.{meeting_date:yyyy-MM-dd}&select=user_id,status,attended_at,recorded_at");
+    var attendance = LocalMeetingsDemo.Enabled
+        ? LocalMeetingsDemo.ListAttendance(club_id, meeting_date)
+        : await db.List($"meeting_attendance?club_id=eq.{club_id}&meeting_date=eq.{meeting_date:yyyy-MM-dd}&select=user_id,status,attended_at,recorded_at");
     var byUser = attendance.ToDictionary(a => S(a!["user_id"]), a => a!);
     var result = new JsonArray();
 
@@ -677,7 +704,9 @@ app.MapPut("/api/meetings/attendance", async (HttpContext c, Db db, MeetingAtten
 {
     var me = await db.Me(c);
     await db.RequireManage(me, i.ClubId);
-    var scheduledMeeting = await db.One($"club_meetings?club_id=eq.{i.ClubId}&meeting_date=eq.{i.MeetingDate:yyyy-MM-dd}&status=eq.scheduled&select=id");
+    var scheduledMeeting = LocalMeetingsDemo.Enabled
+        ? LocalMeetingsDemo.Meeting(i.ClubId, i.MeetingDate, onlyScheduled: true)
+        : await db.One($"club_meetings?club_id=eq.{i.ClubId}&meeting_date=eq.{i.MeetingDate:yyyy-MM-dd}&status=eq.scheduled&select=id");
     if (scheduledMeeting is null) throw new ApiException(404, "Club meeting not found for the selected date.");
     var st = Need(i.Status, "Status").ToLowerInvariant();
     if (st is not ("pending" or "present" or "late" or "absent"))
@@ -685,6 +714,9 @@ app.MapPut("/api/meetings/attendance", async (HttpContext c, Db db, MeetingAtten
 
     var member = await db.One($"club_members?club_id=eq.{i.ClubId}&user_id=eq.{i.UserId}&select=user_id");
     if (member is null) throw new ApiException(400, "This user is not a member of the selected club.");
+
+    if (LocalMeetingsDemo.Enabled)
+        return Results.Ok(LocalMeetingsDemo.MarkAttendance(i.ClubId, i.UserId, i.MeetingDate, st));
 
     var rows = await db.Insert("meeting_attendance", new Dictionary<string, object?>
     {
@@ -704,6 +736,26 @@ app.MapGet("/api/club-meetings", async (HttpContext c, Db db, Guid? club_id) =>
     var me = await db.Me(c);
     var userId = G(me["id"]);
     var role = S(me["role"]);
+    if (LocalMeetingsDemo.Enabled)
+    {
+        if (club_id is not null)
+        {
+            var allowed = role == "admin" || await db.CanManage(me, club_id.Value)
+                || await db.One($"club_members?club_id=eq.{club_id}&user_id=eq.{userId}&select=user_id") is not null;
+            if (!allowed) throw new ApiException(403, "You do not belong to this club.");
+            return Results.Ok(LocalMeetingsDemo.ListMeetings(new[] { club_id.Value }));
+        }
+        if (role == "admin")
+        {
+            var all = await db.List("clubs?select=id");
+            return Results.Ok(LocalMeetingsDemo.ListMeetings(all.Select(x => G(x!["id"]))));
+        }
+        var mine = (await db.List($"club_members?user_id=eq.{userId}&select=club_id"))
+            .Select(x => G(x!["club_id"]));
+        var advised = (await db.List($"clubs?advisor_id=eq.{userId}&select=id"))
+            .Select(x => G(x!["id"]));
+        return Results.Ok(LocalMeetingsDemo.ListMeetings(mine.Concat(advised).Distinct()));
+    }
     if (club_id is not null)
     {
         var hasAccess = role == "admin" || await db.CanManage(me, club_id.Value)
@@ -738,6 +790,12 @@ app.MapPost("/api/club-meetings", async (HttpContext c, Db db, ClubMeetingIn i) 
     if (mode == "offline" && (location is null || location.Length > 250))
         throw new ApiException(400, "Offline meetings require a location (up to 250 characters).");
     var club = await db.One($"clubs?id=eq.{i.ClubId}&select=id,name") ?? throw new ApiException(404, "Club not found.");
+    if (LocalMeetingsDemo.Enabled)
+    {
+        var recipients = (await db.ClubMembers(i.ClubId)).Where(x => x != G(me["id"]));
+        return Results.Ok(LocalMeetingsDemo.CreateMeeting(i.ClubId, title, i.MeetingDate, i.StartsAt, i.EndsAt,
+            mode, link, location, G(me["id"]), S(club["name"]), recipients));
+    }
     var already = await db.One($"club_meetings?club_id=eq.{i.ClubId}&meeting_date=eq.{i.MeetingDate:yyyy-MM-dd}&select=id");
     if (already is not null) throw new ApiException(409, "A meeting already exists for this club on that date.");
     var created = (await db.Insert("club_meetings", new Dictionary<string, object?>
@@ -758,6 +816,17 @@ app.MapPost("/api/club-meetings", async (HttpContext c, Db db, ClubMeetingIn i) 
 app.MapPatch("/api/club-meetings/{id:guid}/cancel", async (HttpContext c, Db db, Guid id) =>
 {
     var me = await db.Me(c);
+    if (LocalMeetingsDemo.Enabled)
+    {
+        var meId = G(me["id"]);
+        var rows = LocalMeetingsDemo.ListMeetings((await db.List("clubs?select=id")).Select(x => G(x!["id"])));
+        var local = rows.FirstOrDefault(x => S(x?["id"]) == id.ToString())
+            ?? throw new ApiException(404, "Meeting not found.");
+        var clubIdLocal = G(local["club_id"]);
+        await db.RequireManage(me, clubIdLocal);
+        var recipients = (await db.ClubMembers(clubIdLocal)).Where(x => x != meId);
+        return Results.Ok(LocalMeetingsDemo.Cancel(id, clubIdLocal, recipients));
+    }
     var meeting = await db.One($"club_meetings?id=eq.{id}&select=club_id,title,meeting_date,status")
         ?? throw new ApiException(404, "Meeting not found.");
     var clubId = G(meeting["club_id"]);
