@@ -13,12 +13,19 @@ For a fresh database, open your project > SQL Editor and run these in order:
 6. `database/08_seed_physical_resource_inventory.sql` (adds sample club equipment and shared school supplies)
 7. `database/05_admissions_attendance.sql` (adds admissions club applications and attendance tracking timestamps)
 8. `database/06_event_proposals.sql` (adds member event proposals and administrator review)
+9. `database/09_club_meetings.sql` (adds club meetings and meeting attendance)
+10. `database/10_seed_club_meetings.sql` (adds sample meetings for the demo clubs)
+11. `database/11_seed_expanded_demo_data.sql` (adds 50 related demo rows per application table)
 
 For an existing database that already has the original seed data, run only
 the migrations you have not run yet, including `database/07_physical_resource_inventory.sql`
 to enable physical club inventory, followed by `database/08_seed_physical_resource_inventory.sql`
 to insert sample equipment. Existing digital links are retained in the database but no longer
 appear in the inventory. The inventory seed can be rerun safely; it does not overwrite edited quantities.
+Run `database/09_club_meetings.sql` to enable the Meetings page and meeting attendance, then
+`database/10_seed_club_meetings.sql` to add sample upcoming meetings. Run
+`database/11_seed_expanded_demo_data.sql` after all migrations and seeds to add 50 more related
+demo rows to each application table.
 Do not rerun `01_schema.sql` on a database with data you want to keep; it drops and
 recreates the existing tables.
 
