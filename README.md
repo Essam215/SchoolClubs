@@ -16,6 +16,7 @@ For a fresh database, open your project > SQL Editor and run these in order:
 9. `database/09_club_meetings.sql` (adds club meetings and meeting attendance)
 10. `database/10_seed_club_meetings.sql` (adds sample meetings for the demo clubs)
 11. `database/11_seed_expanded_demo_data.sql` (adds 50 related demo rows per application table)
+12. `database/12_seed_user_activity.sql` (adds 10 tasks, registrations, notifications, and attendance per seeded user)
 
 For an existing database that already has the original seed data, run only
 the migrations you have not run yet, including `database/07_physical_resource_inventory.sql`
@@ -25,7 +26,9 @@ appear in the inventory. The inventory seed can be rerun safely; it does not ove
 Run `database/09_club_meetings.sql` to enable the Meetings page and meeting attendance, then
 `database/10_seed_club_meetings.sql` to add sample upcoming meetings. Run
 `database/11_seed_expanded_demo_data.sql` after all migrations and seeds to add 50 more related
-demo rows to each application table.
+demo rows to each application table. Then run `database/12_seed_user_activity.sql` to add 10
+assigned tasks per seeded student or club leader, along with related event registrations,
+notifications, and meeting attendance.
 Do not rerun `01_schema.sql` on a database with data you want to keep; it drops and
 recreates the existing tables.
 
